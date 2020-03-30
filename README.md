@@ -1,6 +1,6 @@
 # 6thBot
 
-###Setup:
+### Setup:
 
 Before running anything, make sure you have the following packages installed via pip:
 - discord.py (v1.3.2)
