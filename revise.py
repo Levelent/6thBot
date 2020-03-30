@@ -1,3 +1,4 @@
+# TODO (Incomplete) need to have revise command (temp removes year role, adds revision role)
 from discord.ext import commands, tasks
 from json import loads
 

@@ -1,3 +1,4 @@
+# The main module. This adds all the other files as cogs, so this should be the code entry point.
 import discord
 from discord.ext import commands
 from datetime import datetime
@@ -43,4 +44,4 @@ bot.remove_command('help')
 
 # The bot token should be put in api_keys.json
 bot.run(token_retrieve("discord"))
-# Implement shadowbanning (if a user with a certain ID joins, they will immediately be banned.
+# Implement shadowbanning (if a user with a certain ID joins, they will immediately be banned)?

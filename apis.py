@@ -1,3 +1,4 @@
+# Implements a gif search and steam profile search.
 from discord.ext import commands
 from json import loads
 from discord import Embed

@@ -1,3 +1,4 @@
+# Uses the OpenTDB API to fetch questions for a multi-round server quiz.
 from discord.ext import commands
 import asyncio
 import random

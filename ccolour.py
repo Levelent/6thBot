@@ -31,10 +31,18 @@ def get_colour(colour_string: str):
         pass
 
     # Test for Hex Code
+    if len(colour_string) > 6:
+        return None
+
     try:
         colour_int = int(colour_string, 16)
     except Exception as e:
         print(e)
+
+    # Fun fact - 0x000000 actually counts as no colour at all, which is weird
+    if colour_int == 0:
+        colour_int = 1
+
     return colour_int
 
 
@@ -52,9 +60,10 @@ def colour_to_object(colour_int: int):
 
 class BoostColour:
     def __init__(self, role: Role, from_member: Member, to_member: Member):
-        self.role = role  # Can get guild from this
+        self.role = role
         self.to_member = to_member
         self.from_member = from_member
+        # Potential guild attribute
 
 
 def get_target_member(ctx, user_string: str):
@@ -77,7 +86,6 @@ class CustomColours(commands.Cog):
         self.bot = bot
         self.server_id = retrieve_setting("guild_id")  # Guild ID, need to attach to each BoostColour object in future
         self.notify_channel_id = None
-        print(str(self.server_id))
         self.role_id = retrieve_setting("boost_id")  # 'Server Booster' role
         self.banned_colours = [(231, 76, 60), (250, 128, 114), (101, 143, 209)]  # In RGB tuple format
         self.max_colours_per_user = 2
@@ -91,14 +99,13 @@ class CustomColours(commands.Cog):
         colour_store = []
         guild = self.bot.get_guild(self.server_id)  # If switching to multi-server, put inside the for loop and edit.
         for colour_dict in colour_store_json:
-            print(colour_dict['from_id'])
             from_member = guild.get_member(colour_dict['from_id'])
-            print(f"From: {from_member}")
             if colour_dict['from_id'] == colour_dict['to_id']:
                 to_member = from_member
             else:
                 to_member = guild.get_member(colour_dict['to_id'])
             role_obj = guild.get_role(colour_dict['role_id'])
+            print(f"From: {from_member}")
             colour_store.append(BoostColour(role_obj, from_member, to_member))
         return colour_store
 
@@ -162,21 +169,12 @@ class CustomColours(commands.Cog):
         if member_obj is None:
             await ctx.send("Sorry, I don't recognise that person... Try typing in their full username, or user ID.")
             return False
-        em = Embed(
-            title="You've been gifted a custom role colour!", colour=colour_to_object(colour),
-            description=f"Would you like to accept? Your name will have a new colour in chat."
-        ).set_footer(
-            text="This request will time out after 30 seconds."
-        ).add_field(
-            name="Hex Code",
-            value=f"#{hex(colour)[2:].zfill(6)}"
-        ).add_field(
-            name="From",
-            value=ctx.author.mention
-        ).add_field(
-            name="To",
-            value=member_obj.mention
-        )
+        em = Embed(title="You've been gifted a custom role colour!", colour=colour_to_object(colour),
+                   description=f"Would you like to accept? Your name will have a new colour in chat.")
+        em.set_footer(text="This request will time out after 30 seconds.")
+        em.add_field(name="Hex Code", value=f"#{hex(colour)[2:].zfill(6)}")
+        em.add_field(name="From", value=ctx.author.mention)
+        em.add_field(name="To", value=member_obj.mention)
         msg = await ctx.send(member_obj.mention, embed=em)
         await msg.add_reaction('👍')
         await msg.add_reaction('👎')

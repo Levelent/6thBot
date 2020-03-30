@@ -1,3 +1,4 @@
+# TODO (Incomplete) - Will update after finishing up PlusBot, as it's basically the same thing
 from discord.ext import commands
 from discord import Embed
 
@@ -7,6 +8,8 @@ class Starboard(commands.Cog):
         self.bot = bot
         self.message_store = {}
         self.chl_id = 530763055613607947
+        self.threshold = 5
+        self.emote = None
 
     async def message_react_count_update(self, message, number):
         pass
@@ -72,7 +75,8 @@ class Starboard(commands.Cog):
             await ctx.message.add_reaction(emote)
             self.emote = emote
             await ctx.send(f"Set emote to {self.emote}.")
-        except NotFound:
+        except Exception as e:
+            print(e)
             await ctx.send("What you entered is neither a standard emote, nor a custom emote id.")
 
 

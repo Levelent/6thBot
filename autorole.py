@@ -1,3 +1,5 @@
+# TODO (Incomplete) - Welcomes users on join, gives them the filter role and removes after X minutes.
+# TODO Implements a manual verification command which stops the automatic removal and places notices in channels.
 from discord.ext import commands
 from datetime import timedelta, time, datetime
 from asyncio import sleep

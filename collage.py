@@ -1,3 +1,4 @@
+# Generates a collage of size @canvas_w@ * @canvas_h@ with @count@ as an upper bound for the number of members
 from discord.ext import commands
 from discord import File, errors
 from PIL import Image
@@ -18,13 +19,15 @@ class Collage(commands.Cog):
             if not str(param).isdigit() or int(param) < 1:
                 await ctx.send("Your parameters have to be positive integers.")
                 return
-            param = int(param)
         if int(count) > ctx.guild.member_count:
             await ctx.send("Your count parameter is greater than the number of members in the server!")
             return
 
+        count = int(count)
+        canvas_w = int(canvas_w)
+        canvas_h = int(canvas_h)
         canvas = Image.new('RGBA', (canvas_w, canvas_h))
-        step_size = ceil(sqrt((canvas_w * canvas_h) / int(count)))
+        step_size = ceil(sqrt((canvas_w * canvas_h) / count))
         img_num_w = floor(canvas_w / step_size)
         img_num_h = floor(canvas_h / step_size)
         actual_count = img_num_w * img_num_h
