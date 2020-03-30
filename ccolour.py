@@ -95,6 +95,8 @@ class CustomColours(commands.Cog):
 
     async def fetch_colour_store(self):
         with open("json/storage.json", "r") as file:
+            if file.read() == "":
+                return []
             colour_store_json = load(file)
         colour_store = []
         guild = self.bot.get_guild(self.server_id)  # If switching to multi-server, put inside the for loop and edit.
