@@ -1,7 +1,8 @@
 from discord.ext import commands, tasks
 from discord import Member, Embed, Role, Colour
 from json import load, dumps
-from asyncio import TimeoutError, sleep
+from asyncio import TimeoutError
+from typing import Optional
 
 
 def retrieve_setting(reference):
@@ -92,14 +93,18 @@ class CustomColours(commands.Cog):
         self.colour_store = []
 
         self.save_colour_store.start()
+        self.cleanup_roles.start()
 
     async def fetch_colour_store(self):
         with open("json/storage.json", "r") as file:
             if file.read() == "":
                 return []
+            file.seek(0)
             colour_store_json = load(file)
+            print(colour_store_json)
         colour_store = []
         guild = self.bot.get_guild(self.server_id)  # If switching to multi-server, put inside the for loop and edit.
+        print(guild)
         for colour_dict in colour_store_json:
             from_member = guild.get_member(colour_dict['from_id'])
             if colour_dict['from_id'] == colour_dict['to_id']:
@@ -111,20 +116,35 @@ class CustomColours(commands.Cog):
             colour_store.append(BoostColour(role_obj, from_member, to_member))
         return colour_store
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(minutes=15)
+    async def cleanup_roles(self):
+        print("Cleaning up roles...")
+        guild = self.bot.get_guild(self.server_id)
+        for role in guild.roles:
+            if len(role.members) == 0 and "Boost " in role.name:
+                print(f"Deleting Role: {role.name}")
+                await role.delete()
+        print("Finished")
+        
+    @cleanup_roles.before_loop
+    async def before_cleanup(self):
+        await self.bot.wait_until_ready()
+        # Wait for Cache to load in
+
+    @tasks.loop(minutes=10)
     async def save_colour_store(self):
-        await sleep(10)
+        print("Saving Custom Colours to file...")
         colour_store_json = []
         for colour_obj in self.colour_store:
             colour_store_json.append({'role_id': colour_obj.role.id,
                                       'from_id': colour_obj.from_member.id,
                                       'to_id': colour_obj.to_member.id})
-            print(colour_store_json)
+        print(colour_store_json)
         with open("json/storage.json", "w") as file:
             file.write(dumps(colour_store_json))
 
     @save_colour_store.before_loop
-    async def pred(self):
+    async def before_save(self):
         await self.bot.wait_until_ready()
         self.colour_store = await self.fetch_colour_store()
         print(self.colour_store)
@@ -148,6 +168,7 @@ class CustomColours(commands.Cog):
         after_roles = set(after.roles)
         boost_role = before.guild.get_role(self.role_id)  # Doesn't matter if before/after
         if boost_role in (before_roles - after_roles):  # Boost role removed
+            print("Boost Role Removed")
             # Finds the colours they gave out, and removes them.
             removed_roles = set()
             for colour_obj in self.colour_store:
@@ -163,6 +184,7 @@ class CustomColours(commands.Cog):
                     await role.delete()
 
         elif boost_role in (after_roles - before_roles):  # Boost role added
+            print("Role Added")
             # TODO Thank a user for boosting, and notify them about the custom colours
             # This would only apply when the boost colour is given to themselves
             pass
@@ -171,6 +193,8 @@ class CustomColours(commands.Cog):
         if member_obj is None:
             await ctx.send("Sorry, I don't recognise that person... Try typing in their full username, or user ID.")
             return False
+        if ctx.author == member_obj:
+            return True
         em = Embed(title="You've been gifted a custom role colour!", colour=colour_to_object(colour),
                    description=f"Would you like to accept? Your name will have a new colour in chat.")
         em.set_footer(text="This request will time out after 30 seconds.")
@@ -206,11 +230,11 @@ class CustomColours(commands.Cog):
         return return_val
 
     @commands.command()
-    async def setcolour(self, ctx, target_colour: str = None, target_member: str = None):
+    async def setcol(self, ctx, target_colour: str = None, target_member: str = None):
         if target_colour is None:
-            await ctx.send("This command should be in the format `setcolour <target_colour> [target_member]`.\n"
+            await ctx.send("This command should be in the format `setcol <target_colour> [target_member]`.\n"
                            "The second parameter can be left blank, and you'll give yourself the custom colour.\n"
-                           "Looking to remove a role instead? Try `resetcolour [target_member]`, or `resetcolour all`.")
+                           "Looking to remove a role instead? Try `removecol [target_member]`.")
             return  # Later we'd want to replace with typing the specific help command of this
         colour = get_colour(target_colour.strip("#"))
         if colour is None:
@@ -238,13 +262,19 @@ class CustomColours(commands.Cog):
         count = 0
         old_colour_obj = None
         for colour_obj in self.colour_store:
+            print(f"From: Searching for {ctx.author}, found {colour_obj.from_member}")
+            print(f"To: Searching for {member_obj}, found {colour_obj.to_member}")
             if colour_obj.to_member == member_obj:  # If old colour exists
                 old_colour_obj = colour_obj
-            elif colour_obj.from_member == ctx.author:
+                if colour_obj.from_member == ctx.author:  # If link is existing
+                    count = 0
+                    break
+            if colour_obj.from_member == ctx.author:
+                print("Count incremented")
                 count += 1
         if count > self.max_colours_per_user:
             await ctx.send(f"You can only give custom colours to {self.max_colours_per_user} users, including yourself."
-                           f"\nUse the `resetcolour` command to remove the ones you've already added.")
+                           f"\nUse the `resetcol` command to remove the ones you've already added.")
             return
 
         # Remove the old colour, if one exists
@@ -274,7 +304,7 @@ class CustomColours(commands.Cog):
         await ctx.send(embed=em)
 
     @commands.command()
-    async def getcolour(self, ctx, target_member: str = None):
+    async def getcol(self, ctx, target_member: str = None):
         if target_member is None:
             member_obj = ctx.author
         else:
@@ -292,6 +322,7 @@ class CustomColours(commands.Cog):
             return
 
         colour = colour_obj.role.colour
+        print(str(colour))
         em = Embed(title="🔍 Custom Role Colour", colour=colour)
         em.add_field(name="From", value=colour_obj.from_member.mention)
         em.add_field(name="To", value=member_obj.mention)
@@ -300,10 +331,25 @@ class CustomColours(commands.Cog):
         # Requested
 
     @commands.command()
-    async def resetcolour(self, ctx, target_member: str = None):
-        # TODO reset specific user (target_member = None means yourself)
-        # TODO reset colours you've given out entirely (if target_member = "all")
-        pass
+    async def removecol(self, ctx, target: Optional[Member] = None):
+        for colour_obj in self.colour_store:
+            if (ctx.author == colour_obj.to_member and target is None) or (ctx.author == colour_obj.from_member and target == colour_obj.to_member):
+                await colour_obj.to_member.remove_roles(colour_obj.role)
+                self.colour_store.remove(colour_obj)
+        # TODO confirmation
+
+    @commands.command()
+    async def mycols(self, ctx):
+        colour_desc = ""
+        for colour_obj in self.colour_store:
+            if ctx.author == colour_obj.from_member and colour_obj.role is not None:
+                colour_desc += f"{colour_obj.role.mention} given to {colour_obj.to_member.mention}\n"
+        if colour_desc == "":
+            colour_desc = "You haven't added any colours yet!"
+        em = Embed(title="Your custom colours", description=colour_desc)
+        em.set_author(name=str(ctx.author), icon_url=str(ctx.author.avatar_url))
+        em.set_footer(text="Type 6th.removecol [member] to remove a specific custom colour.")
+        await ctx.send(embed=em)
 
 
 def setup(bot):

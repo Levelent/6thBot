@@ -7,11 +7,16 @@ from io import BytesIO
 from math import sqrt, ceil, floor
 
 
+async def is_owner(ctx):
+    return ctx.author.id == 116217065978724357
+
+
 class Collage(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command(timeout=300.0)
+    @commands.check(is_owner)
     async def collage(self, ctx, count=None, canvas_w=1920, canvas_h=1080):
         if count is None:
             count = ctx.guild.member_count // 2

@@ -2,16 +2,16 @@
 import discord
 from discord.ext import commands
 from datetime import datetime
-from json import loads
+from json import load
 
 
 def token_retrieve(reference):
     with open("json/api_keys.json", "r", encoding="utf-8") as file:
-        token_dict = loads(file.read())
+        token_dict = load(file)
     return token_dict[reference]
 
 
-class BotCore(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.Client
+class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.Client
     def __init__(self, **options):
         super().__init__(**options)
         self.start_time = datetime.utcnow()
@@ -30,17 +30,18 @@ class BotCore(commands.Bot):  # discord.ext.commands.Bot is a subclass of discor
         await bot.process_commands(msg)
 
 
-# Initialising the bot client
-bot = BotCore(description="A Bot Designed for the r/6thForm Discord.",
-              activity=discord.Game("with you!"),  # "playing" is prefixed at the start of the status
-              command_prefix="6th.")
-bot.load_extension('apis')
-bot.load_extension('quiz')
-bot.load_extension('ccolour')
-# bot.load_extension('revise')
-# bot.load_extension('starboard')
-bot.load_extension('collage')
+# Initialise the bot client
+bot = Core(description="A Bot Designed for the r/6thForm Discord.",
+           activity=discord.Game("with you!"),  # "playing" is prefixed at the start of the status
+           command_prefix="6th.")
 bot.remove_command('help')
+
+# Load Extensions
+extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "inspect"]
+for ext_name in extensions:
+    print(f"Loading {ext_name}")
+    bot.load_extension(f"cogs.{ext_name}")
+# Other extensions: revise, starboard, wiki, autorole, archive
 
 # The bot token should be put in api_keys.json
 bot.run(token_retrieve("discord"))

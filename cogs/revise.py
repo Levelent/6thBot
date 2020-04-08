@@ -70,7 +70,7 @@ class Revise(commands.Cog):
     @store_role.before_loop
     async def retrieve_role(self):
         """Retrieve all stored roles, should happen on bot reconnection or reboot."""
-        with open("json/storage.json", "r", encoding="utf-8") as file:
+        with open("../json/storage.json", "r", encoding="utf-8") as file:
             role_storage = loads(file.read())
             print(role_storage)
             for guild_id in role_storage:
