@@ -1,11 +1,11 @@
 # Uses the OpenTDB API to fetch questions for a multi-round server quiz.
 from discord.ext import commands
-import asyncio
-import random
-from json import loads
-import html
-from aiohttp import ClientSession
 from discord import Embed
+from asyncio import sleep
+from random import shuffle
+from json import loads
+from html import unescape
+from aiohttp import ClientSession
 
 
 class Quiz(commands.Cog):
@@ -27,14 +27,9 @@ class Quiz(commands.Cog):
             json_string = await resp.text()
         return loads(json_string)
 
-    # TODO: Link to the message ID of the quiz that's taking place, if it is.
     @commands.command()
     @commands.max_concurrency(1, per=commands.BucketType.guild)
-    async def quiz(self, ctx, rounds="5"):
-        if not rounds.isdigit():
-            await ctx.channel.send("The number of rounds you requested isn't an integer.")
-            return
-        rounds = int(rounds)
+    async def quiz(self, ctx, rounds: int = 5):
         if rounds > 50:
             await ctx.channel.send("The maximum number of questions in one quiz is 50.")  # Technically 150 is the limit
             return
@@ -47,7 +42,7 @@ class Quiz(commands.Cog):
                 diff_amount += 1
             if diff == "hard" and rounds % 3 == 2:  # remainder 2
                 diff_amount += 1
-            url = "https://opentdb.com/api.php?amount={}&type=multiple&difficulty={}".format(diff_amount, diff)
+            url = f"https://opentdb.com/api.php?amount={diff_amount}&type=multiple&difficulty={diff}"
             data = await self.get_json_content(url)
             for question in data['results']:
                 questions.append(question)
@@ -55,39 +50,43 @@ class Quiz(commands.Cog):
         # Note that there's a disproportionately large number of questions in the 'Entertainment: Video Games' category
 
         players = {}
-        em = Embed(title="A Quiz will start in 15 seconds.",
-                   description=("- A series of multiple choice questions will be displayed here.\n"
-                                "- Add one of the **A, B, C or D** reactions to answer within the time limit.\n"
-                                "- Correct answers get **+1000** points, but incorrect ones get **-250**.\n"
-                                "Good Luck!"))
-        em.set_footer(text="This Quiz will have {} questions | Sourced from the OpenTDB API".format(rounds))
+        em = Embed(
+            title="A Quiz will start in 15 seconds.",
+            description=(
+                "- A series of multiple choice questions will be displayed here.\n"
+                "- Add one of the **A, B, C or D** reactions to answer within the time limit.\n"
+                "- Correct answers get **+1000** points, but incorrect ones get **-250**.\n"
+                "Good Luck!"
+            )
+        )
+        em.set_footer(text=f"This Quiz will have {rounds} questions | Sourced from the OpenTDB API")
         q_message = await ctx.channel.send(embed=em)
         self.active_quiz = q_message.jump_url
 
         ordered_players = []
-        await asyncio.sleep(5)
-        for question_no in range(int(rounds)):
+        await sleep(5)
+        for question_no in range(rounds):
             q_data = questions[question_no]
 
-            em = Embed(colour=0x8B008B, title=html.unescape(q_data['question']))
-            em.set_footer(text="Question {} of {} | {} seconds per question".format(question_no + 1, rounds, 15))
-            em.set_author(name="{} | {}".format(q_data['difficulty'].title(), q_data['category']),
+            em = Embed(colour=0x8B008B, title=unescape(q_data['question']))
+            em.set_footer(text=f"Question {question_no + 1} of {rounds} | {15} seconds per question")
+            em.set_author(name=f"{q_data['difficulty'].title()} | {q_data['category']}",
                           icon_url=ctx.me.avatar_url)
 
             options = q_data['incorrect_answers']
             options.append(q_data['correct_answer'])
-            random.shuffle(options)
+            shuffle(options)
 
             letter_blocks = ["\U0001F1E6", "\U0001F1E7", "\U0001F1E8", "\U0001F1E9"]
             corr_index = 0
             for i in range(len(options)):
-                em.add_field(name=letter_blocks[i], value=html.unescape(options[i]), inline=False)
+                em.add_field(name=letter_blocks[i], value=unescape(options[i]), inline=False)
                 if options[i] == q_data['correct_answer']:
                     corr_index = i
                 await q_message.add_reaction(letter_blocks[i])
             for i in range(3):
-                await q_message.edit(content=":alarm_clock: You have {0} Seconds to answer this question".format(15 - (i * 5)), embed=em)
-                await asyncio.sleep(5)
+                await q_message.edit(content=f":alarm_clock: You have {15 - (i * 5)} Seconds to answer this question", embed=em)
+                await sleep(5)
             await q_message.edit(content="\n:alarm_clock: Time's up!")
 
             corr_users = set()
@@ -133,41 +132,41 @@ class Quiz(commands.Cog):
             else:
                 incorr_text = "No Incorrect Answers."
 
+            # TODO: Remove the need for this, if possible
             # Turns each {'id': {'item1': 0, 'item2': 0},} into [('id',{'item1': 0, 'item2': 0}),]
             ordered_players = sorted(players.items(), key=lambda k: k[1]["score"], reverse=True)
             value = ""
             for num in range(len(ordered_players)):
                 player = ordered_players[num]
                 user = await self.bot.fetch_user(player[0])
-                value += ("#{0} | {1} | {2}\n".format(num + 1, user.mention, player[1]["score"]))
-            em = Embed(title="Answer | **{0} {1}**".format(letter_blocks[corr_index],
-                                                           html.unescape(q_data['correct_answer'])),
-                       description="{0}\n{1}".format(corr_text, incorr_text))
+                value += f"#{num + 1} | {user.mention} | {player[1]['score']}\n"
+            em = Embed(
+                title=f"Answer | **{letter_blocks[corr_index]} {unescape(q_data['correct_answer'])}**",
+                description=f"{corr_text}\n{incorr_text}"
+            )
             em.add_field(name="Current Standings:", value=value)
-            em.set_footer(text="{0} questions remain | Advancing in 5 seconds".format(int(rounds) - question_no - 1))
+            em.set_footer(text=f"{rounds - question_no - 1} questions remain | Advancing in 5 seconds")
             await q_message.edit(embed=em)
-            await asyncio.sleep(5)
+            await sleep(5)
 
         value = ""
         for num in range(len(ordered_players)):
             player = ordered_players[num]
             user = await self.bot.fetch_user(player[0])
-            value += ("#{0} | {1} | {2}/{3} | {4}\n".format(num+1,
-                                                            user.mention,
-                                                            player[1]["correct"],
-                                                            (player[1]["incorrect"] + player[1]["correct"]),
-                                                            player[1]["score"]))
+            value += f"#{num+1} | {user.mention} | {player[1]['correct']}/{player[1]['incorrect']} | {player[1]['score']}\n"
         em = Embed(title="Final Scores", colour=0x8B008B, description=value)
-        em.set_footer(text="Lasted {} rounds.".format(rounds))
+        em.set_footer(text=f"Lasted {rounds} rounds.")
         em.set_author(name="Quiz Complete | Type `6th.quiz` for another one!", icon_url=ctx.me.avatar_url)
         await q_message.edit(embed=em)
 
     @quiz.error
     async def quiz_error(self, ctx, error):
         print(error)
-        if isinstance(error, commands.CheckFailure):
-            await ctx.send(f"Only one quiz can be active at once."
+        if isinstance(error, commands.MaxConcurrencyReached):
+            await ctx.send(f"Only one quiz can be active at once. "
                            f"You can find the current game here:\n{self.active_quiz}")
+        elif isinstance(error, commands.UserInputError):
+            await ctx.send("Make sure to specify a *positive number* of rounds.")
 
 
 def setup(bot):
