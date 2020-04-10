@@ -1,14 +1,23 @@
 # TODO (Incomplete) - Welcomes users on join, gives them the filter role and removes after X minutes.
 # TODO Implements a manual verification command which stops the automatic removal and places notices in channels.
 from discord.ext import commands
-from discord import Member, Guild
+from discord import Member, Guild, Message, NotFound
 from asyncio import sleep
 from util.timeformatter import highest_denom
+
+
+def get_text(filename):
+    with open(f"text/{filename}.txt") as file:
+        return file.read()
 
 
 class Filter(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.welcome_msg = get_text("welcome_msg")
+        self.man_msg = get_text("man_msg")
+        print(self.welcome_msg)
+        print(self.man_msg)
         self.welcome_chl_id = 683451235734782010
         self.rules_chl_id = 683484613858820136
         self.years_chl_id = 566264662975315992
@@ -43,6 +52,7 @@ class Filter(commands.Cog):
         if filter_role is None:
             return
         await member.add_roles(filter_role)
+        await member.send(self.welcome_msg)
 
         # TODO: Replace all the channel attributes with a lookup in text.
         w_chl = self.bot.get_channel(self.welcome_chl_id)
@@ -65,6 +75,8 @@ class Filter(commands.Cog):
 
         if not self.manual:
             await sleep(filter_secs)
+            await member.remove_roles(filter_role)
+            print(f"Removed filter role from {str(member)}")
 
     @commands.command()
     @commands.has_guild_permissions(manage_roles=True)
@@ -72,16 +84,28 @@ class Filter(commands.Cog):
         guild_settings = self.bot.guild_settings[str(ctx.guild.id)]
         if value is True:
             guild_settings['manual'] = True
-            # TODO: Send rule change message in channel
             r_chl = self.bot.get_channel(self.rules_chl_id)
-            # man_msg = await r_chl.send("")
+            man_msg: Message = await r_chl.send(self.man_msg)
+            guild_settings['man_msg_id'] = man_msg.id
             await ctx.send("Manual Verification Enabled.")
         else:
-            guild_settings.remove('manual')
+            guild_settings.pop('manual', None)
+            man_msg_id = guild_settings.pop('man_msg_id', None)
+            if man_msg_id is not None:
+                try:
+                    man_msg = await self.bot.fetch_message(man_msg_id)
+                    await man_msg.delete()
+                except NotFound:
+                    print("Message not found")
             await ctx.send("Manual Verification Disabled.")
 
-
-
+    @manual.error
+    async def manual_error(self, ctx, error):
+        print(error)
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("You haven't specified `on` or `off`!")
+        elif isinstance(error, commands.UserInputError):
+            await ctx.send("I can't understand whether you want to turn manual mode `on` or `off`.")
 
 
 def setup(bot):

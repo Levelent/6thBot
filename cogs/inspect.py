@@ -19,7 +19,7 @@ class Inspect(commands.Cog):
         if create_now_diff.days < 7:
             colour = 0xEED202
         else:
-            colour = 0x8B008B
+            colour = 0xFA8072
 
         em = Embed(title=str(member), colour=colour, url=str(member.avatar_url))
         em.set_thumbnail(url=str(member.avatar_url))

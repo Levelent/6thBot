@@ -1,0 +1,23 @@
+Thanks for joining the **Official r/6thform Discord Server**!
+
+:warning: Note: We have a **__15 minute wait timer__** as a spam prevention measure. :warning:
+Once you're all set up, here's what you can do:
+
+:key: **1. Join a Year**
+This gives you access to all general channels. We have 4 ranks for this:
+:small_blue_diamond: Pre Sixth Form
+:small_blue_diamond: Year 12
+:small_blue_diamond: Year 13
+:small_blue_diamond: Post Sixth Form
+To join one of these, go to `#years` and react to the message with your chosen year.
+
+:game_die: **2. Join Optional Channels**
+After joining a year, go to `#optional`. Feel free to join any role that applies to you!
+
+:books: **3. Add Subject Roles**
+Finally, go to `#bot-commands` and type **!subjects** to see our full subject list.
+:small_orange_diamond: You can add subjects by typing **?rank [subject]** (such as '?rank PE').
+Then, you'll be able to talk in channels where people share the same subjects as you.
+
+Most importantly of all, make sure to have a good time!
+*- r/6thform Team*

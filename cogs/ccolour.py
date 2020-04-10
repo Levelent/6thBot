@@ -180,19 +180,20 @@ class CustomColours(commands.Cog):
         after_roles = set(after.roles)
 
         # Get the colour role for the server, if it exists.
+        max_colours = self.get_max_colours(before.guild)
         colour_role = self.get_colour_role(before.guild)
         if colour_role is None:
             return
         elif colour_role in (after_roles - before_roles):  # Colour enabling role added
             print(f"+ {after} can now use custom colours.")
-            # await after.send(
-            #     "Just to let you know, you now have access to **custom colours**!\n"
-            #     "You can use either a colour name, or hex code. For example:\n"
-            #     "`6.setcol orange` gives you an orange role colour.\n"
-            #     "`6.setcol #ff00ff` gives you a colour with the hex code #ff00ff.\n"
-            #     "`6.setcol yellow Bob#0001` gives Bob#0001 a yellow role colour, if they accept.\n"
-            #     f"You can give out a maximum of {self.max_colours_per_user} colours.\n"
-            # )
+            await after.send(
+                "Just to let you know, you now have access to **custom colours**!\n"
+                "You can use either a colour name, or hex code. For example:\n"
+                "`6.setcol orange` gives you an orange role colour.\n"
+                "`6.setcol #ff00ff` gives you a colour with the hex code #ff00ff.\n"
+                "`6.setcol yellow Bob#0001` gives Bob#0001 a yellow role colour, if they accept.\n"
+                f"You can give out a maximum of {max_colours} colours.\n"
+            )
         elif colour_role in (before_roles - after_roles):  # Colour enabling role removed
             print(f"- {after} can no longer use custom colours.")
             # Finds the colours they gave out, and removes them.
@@ -368,6 +369,17 @@ class CustomColours(commands.Cog):
         em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=str(ctx.author.avatar_url))
         em.set_footer(text="Try `removecol [member]` to remove a specific custom colour.")
         await ctx.send(embed=em)
+
+    @commands.command()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def maxcols(self, ctx, num: int):
+        if num <= 0:
+            await ctx.send("Try to set the limit to a positive integer.")
+            return
+        self.bot.guild_settings[str(ctx.guild.id)]["max_colours"] = num
+        await ctx.send(f"Max colours set to {num}")
+
+
 
 
 def setup(bot):
