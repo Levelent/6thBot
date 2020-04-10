@@ -7,8 +7,8 @@ from json import loads
 from re import sub
 
 
-def get_file(name):
-    with open(f"{name}.txt") as file:
+def get_lines(filename):
+    with open(f"text/{filename}.txt") as file:
         return file.readlines()
 
 
@@ -23,7 +23,7 @@ async def get_json_content(url):
 class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.murder_lines: [str] = get_file("murder")
+        self.murder_lines: [str] = get_lines("murder")
 
     @commands.command()
     async def hug(self, ctx, target: Optional[Member] = None):

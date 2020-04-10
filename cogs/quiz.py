@@ -27,6 +27,7 @@ class Quiz(commands.Cog):
             json_string = await resp.text()
         return loads(json_string)
 
+    # TODO: Link to the message ID of the quiz that's taking place, if it is.
     @commands.command()
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     async def quiz(self, ctx, rounds="5"):
