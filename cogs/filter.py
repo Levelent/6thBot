@@ -52,7 +52,6 @@ class Filter(commands.Cog):
         if filter_role is None:
             return
         await member.add_roles(filter_role)
-        await member.send(self.welcome_msg)
 
         # TODO: Replace all the channel attributes with a lookup in text.
         w_chl = self.bot.get_channel(self.welcome_chl_id)
@@ -60,14 +59,16 @@ class Filter(commands.Cog):
         y_chl = self.bot.get_channel(self.years_chl_id)
         filter_secs = self.get_filter_time(member.guild)
         if self.manual:
+            dm_msg = self.welcome_msg + "\n\n:warning: Note: Make sure to **__contact a member of staff__** to get verified :warning:"
             next_step = ("We’re currently in **manual verification**, "
                          "so you’ll need to *message an online staff member* to get verified. "
                          f"Check the {r_chl.mention} channel for more information.")
         else:
+            dm_msg = self.welcome_msg + "\n\n:warning: Note: We have a **__15 minute wait timer__** as a spam prevention measure. :warning:"
             next_step = ("As a *spam prevention* measure, you won't be able to do anything "
                          f"for the first **{highest_denom(filter_secs)}.** "
                          f"Take some time to read through {r_chl.mention}.")
-
+        await member.send(dm_msg)
         await w_chl.send(f"Hey {member.mention}, Welcome to our **{guild.name}!**\n\n"
                          f"🔸 {next_step}\n\n"
                          f"Then, visit {y_chl.mention} to assign yourself a year! "
@@ -82,9 +83,9 @@ class Filter(commands.Cog):
     @commands.has_guild_permissions(manage_roles=True)
     async def manual(self, ctx, value: bool):
         guild_settings = self.bot.guild_settings[str(ctx.guild.id)]
+        r_chl = self.bot.get_channel(self.rules_chl_id)
         if value is True:
             guild_settings['manual'] = True
-            r_chl = self.bot.get_channel(self.rules_chl_id)
             man_msg: Message = await r_chl.send(self.man_msg)
             guild_settings['man_msg_id'] = man_msg.id
             await ctx.send("Manual Verification Enabled.")
@@ -93,7 +94,7 @@ class Filter(commands.Cog):
             man_msg_id = guild_settings.pop('man_msg_id', None)
             if man_msg_id is not None:
                 try:
-                    man_msg = await self.bot.fetch_message(man_msg_id)
+                    man_msg = await r_chl.fetch_message(man_msg_id)
                     await man_msg.delete()
                 except NotFound:
                     print("Message not found")
