@@ -8,7 +8,7 @@ from re import sub
 
 
 def get_lines(filename):
-    with open(f"text/{filename}.txt") as file:
+    with open(f"text/{filename}.txt", encoding="utf-8") as file:
         return file.readlines()
 
 
@@ -23,7 +23,7 @@ async def get_json_content(url):
 class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.murder_lines: [str] = get_lines("murder")
+        self.murder_lines: [str] = get_lines("kill")
 
     @commands.command()
     async def hug(self, ctx, target: Optional[Member] = None):
@@ -35,21 +35,37 @@ class Fun(commands.Cog):
         await ctx.send(f"**{you}** hugs **{target.display_name}**. It's a little awkward, but they don't mind.")
 
     @commands.command()
-    async def murder(self, ctx, target: Optional[Member] = None):
-        you = ctx.author.display_name
+    async def kill(self, ctx, target: Optional[Member] = None):
+        you: Member = ctx.author
 
         if target is None:
-            await ctx.send(f"{you} wanted to murder someone, but never specified who.")
+            await ctx.send(f"**{you.display_name}** wanted to murder someone, but never specified who.")
             return
         if target == ctx.author:
-            await ctx.send(f"{you} needs to pick someone else to murder.")
+            await ctx.send(f"**{you.display_name}** needs to pick someone else, hmm?")
             return
-        # Get from file (split by line), replace <you> and <them> with target.display_name and ctx.author.display_name
+        # Get from file (split by line), replace <you> and <user> with you and target respectively
         line = choice(self.murder_lines)
-        line = line.replace("**<you>**", f"{you}")
-        line = line.replace("**<user>**", f"{target.display_name}")
+        line = line.replace("<you>", f"**{you.display_name}**")
+        line = line.replace("<user>", f"**{target.display_name}**")
         print(line)
         await ctx.send(line)
+
+    @commands.command()
+    @commands.has_guild_permissions(manage_guild=True)
+    async def lines(self, ctx):
+        length = 0
+        curr_msg = []
+        for line in self.murder_lines:
+            if len(line) + length < 2000:
+                curr_msg.append(line)
+                length += len(line)
+            else:
+                await ctx.send("".join(curr_msg))
+                length = 0
+                curr_msg = []
+        if curr_msg is not []:
+            await ctx.send("".join(curr_msg))
 
     async def get_gif(self, tags=None):
         url = f"http://api.giphy.com/v1/gifs/random?api_key={self.bot.giphy_api_key}&tag={tags}"
@@ -60,7 +76,7 @@ class Fun(commands.Cog):
         """Posts a random gif from the tags you enter.
 
         gif --> completely random gif.
-        gif <tags<>> --> narrows down the search to specific things.
+        gif [tags[]] --> narrows down the search to specific things.
         """
         content = await self.get_gif(search)
 
@@ -70,13 +86,17 @@ class Fun(commands.Cog):
             return
 
         data = content['data']
-        if search is not None:
+        if search.strip() != "":
             search = sub(" +", ", ", search.strip())
+            desc = f"🔎 Tags: **{search}**\n"
+        else:
+            desc = ""
 
-        em = Embed(color=0xFA8072, title=f"🔎 Tags: {search or '🎲'}", description=f"[Original]({data['image_url']})")
+        em = Embed(color=0xFA8072,
+                   description=f"{desc}[Original]({data['image_url']})")
         em.set_image(url=data['image_url'])
         kilobytes = int(data['images']['original']['mp4_size']) // 1024
-        em.set_footer(text=f"Dimensions: {data['image_width']}x{data['image_height']} "
+        em.set_footer(text=f"{data['image_width']}x{data['image_height']} "
                            f"| Frames: {data['image_frames']} | Size: {kilobytes}kb")
         em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=ctx.author.avatar_url)
 

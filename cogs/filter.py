@@ -1,7 +1,7 @@
 # TODO (Incomplete) - Welcomes users on join, gives them the filter role and removes after X minutes.
 # TODO Implements a manual verification command which stops the automatic removal and places notices in channels.
 from discord.ext import commands
-from discord import Member, Guild, Message, NotFound
+from discord import Member, Guild, Message, NotFound, TextChannel
 from asyncio import sleep
 from util.timeformatter import highest_denom
 
@@ -18,7 +18,6 @@ class Filter(commands.Cog):
         self.man_msg = get_text("man_msg")
         print(self.welcome_msg)
         print(self.man_msg)
-        self.welcome_chl_id = 683451235734782010
         self.rules_chl_id = 683484613858820136
         self.years_chl_id = 566264662975315992
 
@@ -37,6 +36,13 @@ class Filter(commands.Cog):
             return None
         return guild.get_role(filter_role_id)
 
+    def get_welcome_chl(self, guild: Guild):
+        guild_settings = self.bot.guild_settings[str(guild.id)]
+        welcome_chl_id = guild_settings.get("welcome_chl_id", None)
+        if welcome_chl_id is None:
+            return None
+        return guild.get_channel(welcome_chl_id)
+
     def is_manual(self, guild: Guild) -> bool:
         guild_settings = self.bot.guild_settings[str(guild.id)]
         return guild_settings.get("manual", False)
@@ -53,8 +59,11 @@ class Filter(commands.Cog):
             return
         await member.add_roles(filter_role)
 
+        w_chl = self.get_welcome_chl(guild)
+        if w_chl is None:
+            return
+
         # TODO: Replace all the channel attributes with a lookup in text.
-        w_chl = self.bot.get_channel(self.welcome_chl_id)
         r_chl = self.bot.get_channel(self.rules_chl_id)
         y_chl = self.bot.get_channel(self.years_chl_id)
         filter_secs = self.get_filter_time(member.guild)

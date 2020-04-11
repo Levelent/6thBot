@@ -5,7 +5,7 @@ from PIL import Image
 from random import shuffle
 from io import BytesIO
 from math import sqrt, ceil, floor
-
+from os import path, mkdir
 
 async def is_owner(ctx):
     return ctx.author.id == 116217065978724357
@@ -86,6 +86,8 @@ class Collage(commands.Cog):
             top_crop = top
 
             canvas = canvas.crop((0, 0, left_crop, top_crop))
+            if not path.exists("collages/"):
+                mkdir("collages/")
             canvas.save("collages/{}.png".format(ctx.message.guild.id))
             await ctx.channel.send(file=File("collages/{}.png".format(ctx.message.guild.id)))
 
