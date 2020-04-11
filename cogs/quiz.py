@@ -131,7 +131,7 @@ class Quiz(commands.Cog):
                 incorr_text = incorr_results + "| Incorrect..."
             else:
                 incorr_text = "No Incorrect Answers."
-
+            # TODO: Tie reaction emojis to what's counted, not just the position.
             # TODO: Remove the need for this, if possible
             # Turns each {'id': {'item1': 0, 'item2': 0},} into [('id',{'item1': 0, 'item2': 0}),]
             ordered_players = sorted(players.items(), key=lambda k: k[1]["score"], reverse=True)
@@ -156,7 +156,7 @@ class Quiz(commands.Cog):
             value += f"#{num+1} | {user.mention} | {player[1]['correct']}/{player[1]['incorrect']} | {player[1]['score']}\n"
         em = Embed(title="Final Scores", colour=0x8B008B, description=value)
         em.set_footer(text=f"Lasted {rounds} rounds.")
-        em.set_author(name="Quiz Complete | Type `6th.quiz` for another one!", icon_url=ctx.me.avatar_url)
+        em.set_author(name="Quiz Complete | Type '6.quiz' for another one!", icon_url=ctx.me.avatar_url)
         await q_message.edit(embed=em)
 
     @quiz.error

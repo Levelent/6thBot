@@ -252,12 +252,12 @@ class CustomColours(commands.Cog):
 
     @commands.command()
     async def setcol(self, ctx, target_colour: str = None, target_member: str = None):
-        colour_role = self.get_colour_role(ctx.guild)
+        colour_role: Role = self.get_colour_role(ctx.guild)
         print(colour_role)
         if colour_role is None:
             await ctx.send("Sorry, this server doesn't have a colour role set up...")
             return
-        elif target_colour is None:
+        if target_colour is None:
             await ctx.send("This command should be in the format `setcol <target_colour> [target_member]`.\n"
                            "The second parameter can be left blank, and you'll give yourself the custom colour.\n"
                            "Looking to remove a role instead? Try `removecol [target_member]`.")
@@ -266,13 +266,13 @@ class CustomColours(commands.Cog):
         if colour is None:
             await ctx.send("Sorry, I can't recognise your colour... Try typing a **Hex Code** or **Colour Name**.")
             return
-        elif ctx.author not in ctx.guild.get_role:
+        if ctx.author not in colour_role.members:
             await ctx.send("Sorry, you need to be boosting the server to use this feature!")
             return
-        elif not self.is_colour_valid(colour):
+        if not self.is_colour_valid(colour):
             await ctx.send("That colour's too similar to the staff or bots... try picking another one!")
             return
-
+        print("Test 1")
         if target_member is None:
             member_obj = ctx.author
         else:
@@ -282,7 +282,7 @@ class CustomColours(commands.Cog):
                 return
             elif not await self.request_custom_colour(ctx, colour, member_obj):
                 return  # Here the request either timed out or was denied
-
+        print("Test")
         # You can give out self.max_colours_per_user many colours
         # Denies the request if from_user has more than that many things
         # TODO not 100% sure that this works correctly with the max_colours.
@@ -299,11 +299,11 @@ class CustomColours(commands.Cog):
             if colour_obj.from_member == ctx.author:
                 print("Count incremented")
                 count += 1
-                if count > max_colours:
+                if count >= max_colours:
                     await ctx.send(f"You can only give custom colours to {max_colours} users, including yourself.\n"
                                    "Use the `removecol` command to remove the ones you've already added.")
                     return
-
+        print(count)
         # Remove the old colour, if one exists
         if old_colour_obj is not None:
             await old_colour_obj.to_member.remove_roles(old_colour_obj.role)
@@ -326,7 +326,7 @@ class CustomColours(commands.Cog):
         await ctx.send(embed=em)
 
     @commands.command()
-    async def removecol(self, ctx, target: Optional[Member] = None):
+    async def removecol(self, ctx, target: Member = None):
         if target is None:
             for colour_obj in self.colour_store:
                 if ctx.author == colour_obj.to_member:
@@ -348,10 +348,10 @@ class CustomColours(commands.Cog):
             await ctx.send("This user doesn't have any of your role colours.")
 
     @commands.command()
-    async def cols(self, ctx, target: Optional[Member] = None):
+    async def cols(self, ctx, target: Member = None):
         if target is None:
             target = ctx.author
-
+        print(target)
         # Builds string of all custom colours given and received
         colour_desc = ""
         for colour_obj in self.colour_store:

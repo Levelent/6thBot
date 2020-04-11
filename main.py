@@ -70,6 +70,10 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
     async def before_save(self):
         await self.wait_until_ready()
 
+    async def on_command_error(self, ctx, err):
+        if isinstance(err, commands.CommandNotFound):
+            await ctx.message.add_reaction("❓")
+
 
 # Initialise the bot client
 bot = Core(
