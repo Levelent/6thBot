@@ -58,8 +58,9 @@ class Filter(commands.Cog):
         r_chl = self.bot.get_channel(self.rules_chl_id)
         y_chl = self.bot.get_channel(self.years_chl_id)
         filter_secs = self.get_filter_time(member.guild)
-        if self.manual:
-            dm_msg = self.welcome_msg + "\n\n:warning: Note: Make sure to **__contact a member of staff__** to get verified :warning:"
+        is_manual = self.is_manual(member.guild)
+        if is_manual:
+            dm_msg = self.welcome_msg + "\n\n:warning: Note: We're in manual verification, so you'll need to **__contact a member of staff__** to get verified :warning:"
             next_step = ("We’re currently in **manual verification**, "
                          "so you’ll need to *message an online staff member* to get verified. "
                          f"Check the {r_chl.mention} channel for more information.")
@@ -74,7 +75,7 @@ class Filter(commands.Cog):
                          f"Then, visit {y_chl.mention} to assign yourself a year! "
                          "We've sent you a message with instructions on how to join channels.")
 
-        if not self.manual:
+        if not is_manual:
             await sleep(filter_secs)
             await member.remove_roles(filter_role)
             print(f"Removed filter role from {str(member)}")
