@@ -24,7 +24,6 @@ async def get_questions(difficulty, amount):
 
 class ScoreData:
     def __init__(self):
-        # {"[member_id]": {"answered": 7, "correct": 5, "curr_streak": 2, "max_streak": 3, "points": 4700}, ...}
         self.answered = 0
         self.correct = 0
         self.score = 0
@@ -85,14 +84,12 @@ class QuizData:
     def add_correct(self, user_id):
         player_data: ScoreData = self.player_data.get(user_id, None)
         if player_data is None:
-            print("No player data")
             player_data = self._add_user(user_id)
         player_data.add_correct()
 
     def add_incorrect(self, user_id):
         player_data: ScoreData = self.player_data.get(user_id, None)
         if player_data is None:
-            print("No player data")
             player_data = self._add_user(user_id)
         player_data.add_incorrect()
 
@@ -121,7 +118,6 @@ class Quiz(commands.Cog):
             return
         elif guild_quiz_data.message.id != reaction.message.id:
             return
-        print(reaction.emoji)
 
         guild_quiz_data.set_answer(user.id, reaction.emoji)  # change emote
         await reaction.remove(user)
@@ -249,7 +245,7 @@ class Quiz(commands.Cog):
 
             slot = f"#{pos} | {member.mention} | {score_data.correct}/{score_data.answered} | {score_data.score} "
             if score_data.max_streak > 1:
-                slot += f"- **🔥 {score_data.max_streak}** Max"
+                slot += f"**🔥 {score_data.max_streak}** Max"
             slots.append(slot)
 
         em = Embed(title="Final Scores", colour=0xFA8072, description="\n".join(slots) or "Hello? Anyone there?")
@@ -262,13 +258,14 @@ class Quiz(commands.Cog):
 
     @quiz.error
     async def quiz_error(self, ctx, error):
-        print(error)
         if isinstance(error, commands.MaxConcurrencyReached):
             message = self.active_quiz_data[ctx.guild.id].message
             await ctx.send(f"Only one quiz can be active at once. "
                            f"You can find the current game here:\n{message.jump_url}", delete_after=15.0)
         elif isinstance(error, commands.UserInputError):
             await ctx.send("Make sure to specify a *positive number* of rounds.")
+        else:
+            print(error)
 
 
 def setup(bot):
