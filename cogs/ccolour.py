@@ -6,7 +6,7 @@ from typing import Optional
 
 
 def to_role_name(colour: int):
-    return f"Boost | #{hex(colour)[2:].zfill(6)}"
+    return f"CColour | #{hex(colour)[2:].zfill(6)}"
 
 
 def default_colours():
@@ -112,7 +112,7 @@ class CustomColours(commands.Cog):
         for server_str in self.bot.guild_settings:
             guild = self.bot.get_guild(int(server_str))
             for role in guild.roles:
-                if len(role.members) == 0 and "Boost " in role.name:
+                if len(role.members) == 0 and "CColour " in role.name:
                     print(f"Deleting Role: {role.name}")
                     await role.delete()
         print("Finished")

@@ -173,18 +173,12 @@ class Quiz(commands.Cog):
             options.append(question['correct_answer'])
             shuffle(options)
 
-            overwrite = PermissionOverwrite(add_reactions=False)
-            await ctx.channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
-
             correct_index = 0
             for i in range(len(options)):
                 em.add_field(name=self.option_emojis[i], value=unescape(options[i]), inline=False)
                 if options[i] == question['correct_answer']:
                     correct_index = i
                 await quiz_msg.add_reaction(self.option_emojis[i])
-
-            overwrite = PermissionOverwrite(add_reactions=None)
-            await ctx.channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
 
             for i in range(3):
                 await quiz_msg.edit(
