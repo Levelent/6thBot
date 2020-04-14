@@ -87,7 +87,7 @@ class CustomColours(commands.Cog):
         self.cleanup_roles.start()
 
     async def fetch_colour_store(self):
-        with open("json/storage.json", "r") as file:
+        with open("json/role_storage.json", "r") as file:
             if file.read() == "":
                 return []
             file.seek(0)
@@ -131,7 +131,7 @@ class CustomColours(commands.Cog):
                                       'from_id': colour_obj.from_member.id,
                                       'to_id': colour_obj.to_member.id})
         print(colour_store_json)
-        with open("json/storage.json", "w") as file:
+        with open("json/role_storage.json", "w") as file:
             file.write(dumps(colour_store_json))
 
     @save_colour_store.before_loop

@@ -67,22 +67,22 @@ class Revise(commands.Cog):
                 # append role id to user dict
             # json write
 
-    @store_role.before_loop
-    async def retrieve_role(self):
-        """Retrieve all stored roles, should happen on bot reconnection or reboot."""
-        with open("../json/storage.json", "r", encoding="utf-8") as file:
-            role_storage = loads(file.read())
-            print(role_storage)
-            for guild_id in role_storage:
-                guild = self.bot.get_guild(guild_id)
-                for user_id in role_storage[guild_id]:
-                    role_add = []
-                    for role_id in role_storage[guild_id][user_id]:
-                        role_add.append(guild.get_role(role_id))
-                    role_storage[guild_id][user_id] = role_add
-        print(role_storage)
-        self.role_cache = role_storage
-        pass
+    # @store_role.before_loop
+    # async def retrieve_role(self):
+    #     """Retrieve all stored roles, should happen on bot reconnection or reboot."""
+    #     with open("../json/role_storage.json", "r", encoding="utf-8") as file:
+    #         role_storage = loads(file.read())
+    #         print(role_storage)
+    #         for guild_id in role_storage:
+    #             guild = self.bot.get_guild(guild_id)
+    #             for user_id in role_storage[guild_id]:
+    #                 role_add = []
+    #                 for role_id in role_storage[guild_id][user_id]:
+    #                     role_add.append(guild.get_role(role_id))
+    #                 role_storage[guild_id][user_id] = role_add
+    #     print(role_storage)
+    #     self.role_cache = role_storage
+    #     pass
 
     def cog_unload(self):
         self.store_role.cancel()

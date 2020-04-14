@@ -7,30 +7,25 @@ from io import BytesIO
 from math import sqrt, ceil, floor
 from os import path, mkdir
 
-async def is_owner(ctx):
-    return ctx.author.id == 116217065978724357
-
 
 class Collage(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command(timeout=300.0)
-    @commands.check(is_owner)
-    async def collage(self, ctx, count=None, canvas_w=1920, canvas_h=1080):
+    @commands.has_guild_permissions(manage_guild=True)
+    @commands.max_concurrency(1, per=commands.BucketType.guild)
+    async def collage(self, ctx, count: int = None, canvas_w: int = 1920, canvas_h: int = 1080):
         if count is None:
             count = ctx.guild.member_count // 2
         for param in [count, canvas_w, canvas_h]:
-            if not str(param).isdigit() or int(param) < 1:
+            if int(param) < 1:
                 await ctx.send("Your parameters have to be positive integers.")
                 return
         if int(count) > ctx.guild.member_count:
             await ctx.send("Your count parameter is greater than the number of members in the server!")
             return
 
-        count = int(count)
-        canvas_w = int(canvas_w)
-        canvas_h = int(canvas_h)
         canvas = Image.new('RGBA', (canvas_w, canvas_h))
         step_size = ceil(sqrt((canvas_w * canvas_h) / count))
         img_num_w = floor(canvas_w / step_size)
