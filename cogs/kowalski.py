@@ -5,7 +5,7 @@ from datetime import datetime
 from util.timeformatter import highest_denom
 
 
-class Inspect(commands.Cog):
+class Analysis(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -65,4 +65,4 @@ class Inspect(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Inspect(bot))
+    bot.add_cog(Analysis(bot))
