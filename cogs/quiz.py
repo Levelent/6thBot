@@ -232,7 +232,7 @@ class Quiz(commands.Cog):
         pos = 1
         slots = []
         url = None
-        for user_id, score_data in quiz_data.player_data.items():
+        for user_id, score_data in quiz_data.top_scores():
             member = ctx.guild.get_member(user_id)
             if pos == 1:
                 url = str(member.avatar_url)
@@ -241,6 +241,7 @@ class Quiz(commands.Cog):
             if score_data.max_streak > 1:
                 slot += f"**🔥 {score_data.max_streak}** Max"
             slots.append(slot)
+            pos += 1
 
         em = Embed(title="Final Scores", colour=0xFA8072, description="\n".join(slots) or "Hello? Anyone there?")
         em.set_footer(text=f"Lasted {rounds} rounds | Type '6.quiz' to play again")
