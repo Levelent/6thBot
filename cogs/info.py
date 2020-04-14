@@ -10,6 +10,14 @@ class Inspect(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    async def ping(self, ctx):
+        response = await ctx.send("🏓 Pong!")
+        diff = response.created_at - ctx.message.created_at
+        milliseconds = int(diff.total_seconds() * 1000)
+        print(f"Latency: {milliseconds}ms")
+        await response.edit(content=f"🏓 Pong! `{milliseconds}ms`")
+
+    @commands.command()
     async def profile(self, ctx, member: Optional[Member] = None):
         if member is None:
             member = ctx.author
