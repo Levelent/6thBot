@@ -2,6 +2,7 @@ from discord.ext import commands
 from discord import Member, Embed
 from typing import Optional
 from random import choice
+from asyncio import TimeoutError
 from aiohttp import ClientSession
 from json import loads
 from re import sub
@@ -72,6 +73,7 @@ class Fun(commands.Cog):
         return await get_json_content(url)
 
     @commands.command()
+    @commands.cooldown(1, 60.0, type=commands.BucketType.member)
     async def gif(self, ctx, *, search: str = ""):
         """Posts a random gif from the tags you enter.
 
@@ -79,28 +81,49 @@ class Fun(commands.Cog):
         gif [tags[]] --> narrows down the search to specific things.
         """
         content = await self.get_gif(search)
+        data = content['data']
 
-        if not content['data']:
+        if not data:
             em = Embed(title="Not Found 😕", description="We couldn't find a gif that matched the tags you entered.")
             await ctx.send(embed=em)
             return
 
-        data = content['data']
         if search.strip() != "":
             search = sub(" +", ", ", search.strip())
             desc = f"🔎 Tags: **{search}**\n"
         else:
             desc = ""
 
-        em = Embed(color=0xFA8072,
-                   description=f"{desc}[Original]({data['image_url']})")
-        em.set_image(url=data['image_url'])
-        kilobytes = int(data['images']['original']['mp4_size']) // 1024
-        em.set_footer(text=f"{data['image_width']}x{data['image_height']} "
-                           f"| Frames: {data['image_frames']} | Size: {kilobytes}kb")
-        em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=ctx.author.avatar_url)
+        em = Embed(description="⌛ Loading Gif...")
+        gif_msg = await ctx.send(embed=em)
 
-        await ctx.channel.send(embed=em)
+        while True:
+            size = int(data['images']['original']['mp4_size']) // 1024
+
+            em = Embed(color=0xFA8072, description=f"{desc}[Original]({data['image_url']})")
+            em.set_image(url=data['image_url'])
+            em.set_footer(
+                text=f"{data['image_width']}x{data['image_height']} | Frames: {data['image_frames']} | Size: {size}kb"
+            )
+            em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=ctx.author.avatar_url)
+
+            await gif_msg.edit(embed=em)
+            await gif_msg.add_reaction('🔄')
+
+            def check(msg_react, msg_user):
+                return msg_user == ctx.author and msg_react.message.id == gif_msg.id and msg_react.emoji == '🔄'
+            try:
+                await self.bot.wait_for('reaction_add', timeout=15.0, check=check)
+                print()
+            except TimeoutError:
+                print("Timed out")
+                gif_msg = await ctx.channel.fetch_message(gif_msg.id)
+                await gif_msg.clear_reaction('🔄')
+                return
+
+            await gif_msg.clear_reaction('🔄')
+            content = await self.get_gif(search)
+            data = content['data']
 
 
 def setup(bot):
