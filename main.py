@@ -1,17 +1,22 @@
 # The main module. This adds all the other files as cogs, so this should be the code entry point.
+import discord
 from discord.ext import commands, tasks
-from discord import Game, Message, Guild, TextChannel
 from datetime import datetime
 from json import load, dump
 import asyncio
+import os.path
+from util.timeformatter import highest_denom
 
 
 def load_json(filename):
+    if not os.path.isfile(f"json/{filename}.json"):
+        return {}
     with open(f"json/{filename}.json", "r", encoding="utf-8") as file:
         return load(file)
 
 
 def save_json(filename, data):
+    print(filename)
     with open(f"json/{filename}.json", "w", encoding="utf-8") as file:
         dump(data, file, ensure_ascii=False)
 
@@ -27,7 +32,6 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
 
         self.guild_settings: dict = load_json("guild_settings")
         self.start_time = datetime.utcnow()
-        self.save_guild_settings.start()
 
     async def on_ready(self):
         print('Logged on as {0}!'.format(self.user))
@@ -35,17 +39,18 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
         guild_ids: set = {str(guild.id) for guild in self.guilds}
         guild_ids_contained: set = {key for key in self.guild_settings}
         for added_guild in guild_ids - guild_ids_contained:
-            await self.on_guild_join(added_guild)
-            print(f"+ Added {added_guild.name}")
+            self.guild_settings[str(added_guild)]: dict = {}
+            print(f"+ Added {added_guild}")
         for removed_guild in guild_ids_contained - guild_ids:
-            await self.on_guild_remove(removed_guild)
-            print(f"- Removed {removed_guild.name}")
+            self.guild_settings[str(removed_guild)]: dict = {}
+            print(f"- Removed {removed_guild}")
         print("...Done")
+        self.save_guild_settings.start()
 
-    async def on_message(self, msg: Message):
+    async def on_message(self, msg: discord.Message):
         if msg.author.bot:
             return
-        if not isinstance(msg.channel, TextChannel):
+        if not isinstance(msg.channel, discord.TextChannel):
             await msg.channel.send("Sorry, commands don't work in DMs. Try talking to me on a server instead!")
             return
         if msg.guild.me.name.lower() in msg.content.lower() or msg.guild.me in msg.mentions:
@@ -53,11 +58,11 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
         await bot.process_commands(msg)
 
     # Add empty settings dictionary on join
-    async def on_guild_join(self, guild: Guild):
+    async def on_guild_join(self, guild: discord.Guild):
         self.guild_settings[str(guild.id)]: dict = {}
 
     # Remove settings dictionary on leave
-    async def on_guild_remove(self, guild: Guild):
+    async def on_guild_remove(self, guild: discord.Guild):
         self.guild_settings.pop(str(guild.id))
 
     @tasks.loop(minutes=15)
@@ -73,19 +78,27 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
     async def on_command_error(self, ctx, err):
         if isinstance(err, commands.CommandNotFound):
             await ctx.message.add_reaction("❓")
+        elif isinstance(err, commands.CommandOnCooldown):
+            await ctx.send(f"You'll be able to use this command again in **{highest_denom(err.retry_after)}**.",
+                           delete_after=5.0)
+            try:
+                await ctx.message.delete(delay=5.0)
+            except discord.NotFound:
+                return
+        elif isinstance(err, commands.MissingRequiredArgument):
+            await ctx.send(f"You haven't specified the following argument: `{err.param.name}`")
 
 
 # Initialise the bot client
 bot = Core(
     description="A Bot Designed for the r/6thForm Discord.",
-    activity=Game("with you!"),  # "playing" is prefixed at the start of the status
+    activity=discord.Game("with you!"),  # "playing" is prefixed at the start of the status
     command_prefix="6."
-
 )
 bot.remove_command('help')
 
 # Load Extensions
-extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "inspect"]
+extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "kowalski"]
 for ext_name in extensions:
     print(f"Loading {ext_name}")
     bot.load_extension(f"cogs.{ext_name}")
