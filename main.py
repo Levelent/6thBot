@@ -76,6 +76,7 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
         await self.wait_until_ready()
 
     async def on_command_error(self, ctx, err):
+        print(err)
         if isinstance(err, commands.CommandNotFound):
             await ctx.message.add_reaction("❓")
         elif isinstance(err, commands.CommandOnCooldown):
