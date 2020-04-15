@@ -1,8 +1,7 @@
 from discord.ext import commands, tasks
-from discord import Member, Embed, Role, Colour, Guild
+from discord import Member, Embed, Role, Colour, Guild, Forbidden
 from json import load, dumps
 from asyncio import TimeoutError
-from typing import Optional
 
 
 def to_role_name(colour: int):
@@ -79,8 +78,9 @@ def get_target_member(ctx, user_string: str):
 class CustomColours(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.notify_channel_id = None
+        # TODO: add/remove banned colours
         self.banned_colours = [(231, 76, 60), (250, 128, 114), (101, 143, 209)]  # In RGB tuple format
+        # TODO: have colour store be a dictionary with [server_id]: [BoostColour, BoostColour, ...]
         self.colour_store = []
 
         self.save_colour_store.start()
@@ -187,12 +187,15 @@ class CustomColours(commands.Cog):
         elif colour_role in (after_roles - before_roles):  # Colour enabling role added
             print(f"+ {after} can now use custom colours.")
             await after.send(
-                "Just to let you know, you now have access to **custom colours**!\n"
-                "You can use either a colour name, or hex code. For example:\n"
-                "`6.setcol orange` gives you an orange role colour.\n"
-                "`6.setcol #ff00ff` gives you a colour with the hex code #ff00ff.\n"
-                "`6.setcol yellow Bob#0001` gives Bob#0001 a yellow role colour, if they accept.\n"
-                f"You can give out a maximum of {max_colours} colours.\n"
+                "Just to let you know, you now have access to __custom colours__!\n\n"
+                "Commands:\n"
+                "▫️`6.col [member]` to see existing colours\n"
+                "▫️`6.col add <colour> [member]` to add a colour\n"
+                "▫️`6.col remove [member]` to remove a colour\n\n"
+                "<colour> represents either a hex code, or colour name. For example,\n"
+                "🔹 `6.col add orange` - get an orange role colour.\n"
+                "🔹 `6.col add #A69420 Bob#0001` - gives Bob#0001 the colour with hex code #A69420, if they accept.\n"
+                f"You can give out custom colours to **{max_colours}** people, including yourself."
             )
         elif colour_role in (before_roles - after_roles):  # Colour enabling role removed
             print(f"- {after} can no longer use custom colours.")
@@ -250,29 +253,56 @@ class CustomColours(commands.Cog):
         await msg.clear_reactions()
         return return_val
 
-    @commands.command()
-    async def setcol(self, ctx, target_colour: str = None, target_member: str = None):
+    @commands.group(invoke_without_command=True)
+    async def col(self, ctx, member: Member = None):
+        if member is None:
+            member = ctx.author
+        print(member)
+        # Builds string of all custom colours given and received
+        colour_desc = ""
+        for colour_obj in self.colour_store:
+            if ctx.author in colour_obj.from_member and colour_obj.role is not None:
+                colour_desc += f"{colour_obj.role.mention} given to {colour_obj.to_member.mention}\n"
+        for colour_obj in self.colour_store:
+            if ctx.author in colour_obj.to_member and colour_obj.role is not None:
+                colour_desc += f"\nUser has {colour_obj.role.mention} given by {colour_obj.from_member.mention}"
+                break
+        if colour_desc == "":
+            colour_desc = "No custom colours found."
+
+        em = Embed(title=f"{str(member)}'s custom colours", description=colour_desc)
+        em.set_thumbnail(url=str(member.avatar_url))
+        em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=str(ctx.author.avatar_url))
+        em.set_footer(text="Sub-commands: add | remove | max | role | [member]")
+
+        colour_role = self.get_colour_role(ctx.guild)
+        if colour_role is None:
+            colour_text = "None set."
+        else:
+            colour_text = colour_role.mention
+        em.add_field(name="CColour Role", value=colour_text)
+        em.add_field(name="Max colours", value=str(self.get_max_colours(ctx.guild)))
+
+        await ctx.send(embed=em)
+
+    @col.command(name="add")
+    async def col_add(self, ctx, colour: str, target_member: str = None):
         colour_role: Role = self.get_colour_role(ctx.guild)
         print(colour_role)
         if colour_role is None:
             await ctx.send("Sorry, this server doesn't have a colour role set up...")
             return
-        if target_colour is None:
-            await ctx.send("This command should be in the format `setcol <target_colour> [target_member]`.\n"
-                           "The second parameter can be left blank, and you'll give yourself the custom colour.\n"
-                           "Looking to remove a role instead? Try `removecol [target_member]`.")
-            return  # Later we'd want to replace with typing the specific help command of this
-        colour = get_colour(target_colour.strip("#"))
+        colour = get_colour(colour.strip("#"))
         if colour is None:
             await ctx.send("Sorry, I can't recognise your colour... Try typing a **Hex Code** or **Colour Name**.")
             return
         if ctx.author not in colour_role.members:
-            await ctx.send("Sorry, you need to be boosting the server to use this feature!")
+            await ctx.send(f"Sorry, you need to have the {colour_role.mention} role to use this feature!")
             return
         if not self.is_colour_valid(colour):
             await ctx.send("That colour's too similar to the staff or bots... try picking another one!")
             return
-        print("Test 1")
+
         if target_member is None:
             member_obj = ctx.author
         else:
@@ -282,7 +312,7 @@ class CustomColours(commands.Cog):
                 return
             elif not await self.request_custom_colour(ctx, colour, member_obj):
                 return  # Here the request either timed out or was denied
-        print("Test")
+
         # You can give out self.max_colours_per_user many colours
         # Denies the request if from_user has more than that many things
         # TODO not 100% sure that this works correctly with the max_colours.
@@ -301,7 +331,7 @@ class CustomColours(commands.Cog):
                 count += 1
                 if count >= max_colours:
                     await ctx.send(f"You can only give custom colours to {max_colours} users, including yourself.\n"
-                                   "Use the `removecol` command to remove the ones you've already added.")
+                                   "Use the `col remove` command to remove the ones you've already added.")
                     return
         print(count)
         # Remove the old colour, if one exists
@@ -310,23 +340,28 @@ class CustomColours(commands.Cog):
             self.colour_store.remove(old_colour_obj)
 
         role_name = to_role_name(colour)
+        print(role_name)
         for colour_obj in self.colour_store:
             if colour_obj.role.name == role_name:  # If the role colour already exists
                 role = colour_obj.role
                 break
         else:
-            role = await ctx.guild.create_role(name=to_role_name(colour), colour=colour_to_object(colour))
+            print("Creating Role")
+            role = await ctx.guild.create_role(name=role_name, colour=colour_to_object(colour))
             # Moves the new role directly above the colour role.
-            await role.edit(position=colour_role.position + 1)
-
+            try:
+                await role.edit(position=colour_role.position + 1)
+            except Forbidden:
+                # If role position above bot role position
+                pass
         self.colour_store.append(BoostColour(role, ctx.author, member_obj))
         await member_obj.add_roles(role)
 
         em = Embed(title="Success!", description=f"I've added {member_obj.mention} to the {role.mention} role.")
         await ctx.send(embed=em)
 
-    @commands.command()
-    async def removecol(self, ctx, target: Member = None):
+    @col.command(name="remove")
+    async def col_remove(self, ctx, target: Member = None):
         if target is None:
             for colour_obj in self.colour_store:
                 if ctx.author == colour_obj.to_member:
@@ -347,39 +382,25 @@ class CustomColours(commands.Cog):
         else:
             await ctx.send("This user doesn't have any of your role colours.")
 
-    @commands.command()
-    async def cols(self, ctx, target: Member = None):
-        if target is None:
-            target = ctx.author
-        print(target)
-        # Builds string of all custom colours given and received
-        colour_desc = ""
-        for colour_obj in self.colour_store:
-            if ctx.author in colour_obj.from_member and colour_obj.role is not None:
-                colour_desc += f"{colour_obj.role.mention} given to {colour_obj.to_member.mention}\n"
-        for colour_obj in self.colour_store:
-            if ctx.author in colour_obj.to_member and colour_obj.role is not None:
-                colour_desc += f"\nUser has {colour_obj.role.mention} given by {colour_obj.from_member.mention}"
-                break
-        if colour_desc == "":
-            colour_desc = "No custom colours found."
-
-        em = Embed(title=f"{str(target)}'s custom colours", description=colour_desc)
-        em.set_thumbnail(url=str(target.avatar_url))
-        em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=str(ctx.author.avatar_url))
-        em.set_footer(text="Try `removecol [member]` to remove a specific custom colour.")
-        await ctx.send(embed=em)
-
-    @commands.command()
+    @col.command(name="max")
     @commands.has_guild_permissions(manage_roles=True)
-    async def maxcols(self, ctx, num: int):
+    async def col_max(self, ctx, num: int):
         if num <= 0:
             await ctx.send("Try to set the limit to a positive integer.")
             return
         self.bot.guild_settings[str(ctx.guild.id)]["max_colours"] = num
         await ctx.send(f"Max colours set to {num}")
 
-
+    @col.command(name="role")
+    @commands.has_guild_permissions(manage_roles=True)
+    async def col_role(self, ctx, role: Role = None):
+        guild_settings = self.bot.guild_settings[str(ctx.guild.id)]
+        if role is None:
+            guild_settings.pop("colour_role_id", None)
+            await ctx.send("Colour role removed")
+        else:
+            guild_settings["colour_role_id"] = role.id
+            await ctx.send(f"Colour role set to {role.mention}")
 
 
 def setup(bot):
