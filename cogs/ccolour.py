@@ -1,5 +1,5 @@
 from discord.ext import commands, tasks
-from discord import Member, Embed, Role, Colour, Guild, Forbidden
+from discord import Member, Embed, Role, Colour, Guild, Forbidden, HTTPException
 from json import load, dumps
 from asyncio import TimeoutError, sleep
 
@@ -257,23 +257,30 @@ class CustomColours(commands.Cog):
     async def col(self, ctx, member: Member = None):
         if member is None:
             member = ctx.author
-        print(member)
+        print(f"Col: {member}")
+
         # Builds string of all custom colours given and received
+        em = Embed(title=f"{str(member)}'s custom colours")
+
+        for colour_obj in self.colour_store:
+            if member == colour_obj.to_member and colour_obj.role is not None:
+                em = Embed(title=f"{str(member)}'s custom colours", colour=colour_obj.role.colour)
+                em.add_field(name="Own Colour", value=colour_obj.role.mention)
+                if member == colour_obj.from_member:
+                    given_by = "Self"
+                else:
+                    given_by = colour_obj.from_member.mention
+                em.add_field(name="From", value=given_by)
+                break
+
         colour_desc = ""
         for colour_obj in self.colour_store:
-            if ctx.author in colour_obj.from_member and colour_obj.role is not None:
-                colour_desc += f"{colour_obj.role.mention} given to {colour_obj.to_member.mention}\n"
-        for colour_obj in self.colour_store:
-            if ctx.author in colour_obj.to_member and colour_obj.role is not None:
-                colour_desc += f"\nUser has {colour_obj.role.mention} given by {colour_obj.from_member.mention}"
-                break
+            if member == colour_obj.from_member and member != colour_obj.to_member and colour_obj.role is not None:
+                colour_desc += f"{colour_obj.to_member.mention} - {colour_obj.role.mention}\n"
         if colour_desc == "":
-            colour_desc = "No custom colours found."
+            colour_desc = "No colours given."
 
-        em = Embed(title=f"{str(member)}'s custom colours", description=colour_desc)
-        em.set_thumbnail(url=str(member.avatar_url))
-        em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=str(ctx.author.avatar_url))
-        em.set_footer(text="Sub-commands: add | remove | max | role | [member]")
+        em.add_field(name="Gifted Colours", value=colour_desc, inline=False)
 
         colour_role = self.get_colour_role(ctx.guild)
         if colour_role is None:
@@ -282,6 +289,10 @@ class CustomColours(commands.Cog):
             colour_text = colour_role.mention
         em.add_field(name="CColour Role", value=colour_text)
         em.add_field(name="Max colours", value=str(self.get_max_colours(ctx.guild)))
+
+        em.set_thumbnail(url=str(member.avatar_url))
+        em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=str(ctx.author.avatar_url))
+        em.set_footer(text="Sub-commands: add | remove | max | role | [member]")
 
         await ctx.send(embed=em)
 
@@ -333,7 +344,7 @@ class CustomColours(commands.Cog):
                     await ctx.send(f"You can only give custom colours to {max_colours} users, including yourself.\n"
                                    "Use the `col remove` command to remove the ones you've already added.")
                     return
-        print(count)
+
         # Remove the old colour, if one exists
         if old_colour_obj is not None:
             await old_colour_obj.to_member.remove_roles(old_colour_obj.role)
@@ -351,7 +362,7 @@ class CustomColours(commands.Cog):
             # Moves the new role directly above the colour role.
             await sleep(1)  # Web-socket won't have received the colour role yet, so we wait a second
             try:
-                await role.edit(position=colour_role.position + 1)
+                await role.edit(position=colour_role.position)
             except Forbidden:
                 # If role position above bot role position
                 pass
@@ -366,7 +377,11 @@ class CustomColours(commands.Cog):
         if target is None:
             for colour_obj in self.colour_store:
                 if ctx.author == colour_obj.to_member:
-                    await ctx.author.remove_roles(colour_obj.role)
+                    try:
+                        await ctx.author.remove_roles(colour_obj.role)
+                    except HTTPException:
+                        # Here the role is already deleted.
+                        pass
                     self.colour_store.remove(colour_obj)
                     await ctx.send("Your role colour has been removed.")
                     break
