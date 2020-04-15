@@ -1,7 +1,7 @@
 from discord.ext import commands, tasks
 from discord import Member, Embed, Role, Colour, Guild, Forbidden
 from json import load, dumps
-from asyncio import TimeoutError
+from asyncio import TimeoutError, sleep
 
 
 def to_role_name(colour: int):
@@ -349,6 +349,7 @@ class CustomColours(commands.Cog):
             print("Creating Role")
             role = await ctx.guild.create_role(name=role_name, colour=colour_to_object(colour))
             # Moves the new role directly above the colour role.
+            await sleep(1)  # Web-socket won't have received the colour role yet, so we wait a second
             try:
                 await role.edit(position=colour_role.position + 1)
             except Forbidden:
