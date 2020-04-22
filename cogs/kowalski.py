@@ -18,7 +18,7 @@ class Analysis(commands.Cog):
         await response.edit(content=f"🏓 Pong! `{milliseconds}ms`")
 
     @commands.command()
-    async def profile(self, ctx, member: Optional[Member] = None):
+    async def profile(self, ctx, member: Member = None):
         if member is None:
             member = ctx.author
 

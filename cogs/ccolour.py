@@ -10,7 +10,7 @@ def to_role_name(colour: int):
 
 def default_colours():
     return {"white": 0xffffff, "red": 0xff0000, "orange": 0xff8b00, "yellow": 0xffd700, "green": 0x00ff00,
-            "blue": 0x0000ff, "purple": 0x9932cc, "pink": 0xff69b4, "black": 0x000000}
+            "blue": 0x0000ff, "purple": 0x9932cc, "pink": 0xff69b4, "brown": 0x954535, "black": 0x000000}
 
 
 def get_colour(colour_string: str):
@@ -33,14 +33,14 @@ def get_colour(colour_string: str):
     except Exception as e:
         print(e)
 
-    # Fun fact - 0x000000 actually counts as no colour at all, which is weird
+    # 0x000000 actually counts as no colour at all, so we'll set it to 0x000001
     if colour_int == 0:
         colour_int = 1
 
     return colour_int
 
 
-def colour_to_rgb(colour_int: int):
+def int_to_rgb(colour_int: int):
     col_b = colour_int & 255  # Takes the last 8 bits
     col_g = (colour_int >> 8) & 255  # Takes the middle 8 bits
     col_r = (colour_int >> 16) & 255  # Takes the first 8 bits
@@ -48,7 +48,7 @@ def colour_to_rgb(colour_int: int):
 
 
 def colour_to_object(colour_int: int):
-    col_r, col_g, col_b = colour_to_rgb(colour_int)
+    col_r, col_g, col_b = int_to_rgb(colour_int)
     return Colour.from_rgb(col_r, col_g, col_b)
 
 
@@ -142,7 +142,7 @@ class CustomColours(commands.Cog):
 
     def is_colour_valid(self, colour_int: int):
         threshold = 1000  # Distance of just over 30
-        col_r, col_g, col_b = colour_to_rgb(colour_int)
+        col_r, col_g, col_b = int_to_rgb(colour_int)
 
         for test_col in self.banned_colours:
             dist_r = abs(col_r - test_col[0])
@@ -176,6 +176,9 @@ class CustomColours(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before: Member, after: Member):
+        if before.bot:
+            return
+
         before_roles = set(before.roles)
         after_roles = set(after.roles)
 
@@ -253,6 +256,47 @@ class CustomColours(commands.Cog):
         await msg.clear_reactions()
         return return_val
 
+    async def check_existing_colours(self, ctx, member_obj: Member):
+        count = 0
+        old_colour_obj = True
+        max_count = self.get_max_colours(ctx.guild)
+        for colour_obj in self.colour_store:
+            print(f"From: Searching for {ctx.author}, found {colour_obj.from_member}")
+            print(f"To: Searching for {member_obj}, found {colour_obj.to_member}")
+            if colour_obj.to_member == member_obj:  # If old colour exists
+                old_colour_obj = colour_obj
+                if colour_obj.from_member == ctx.author:  # If link is existing
+                    break
+            if colour_obj.from_member == ctx.author:
+                print("Count incremented")
+                count += 1
+                if count >= max_count:
+                    await ctx.send(f"You can only give custom colours to {max_count} users, including yourself.\n"
+                                   "Use the `col remove` command to remove the ones you've already added.")
+                    return False
+        return old_colour_obj
+
+    async def assign_custom_colour(self, ctx, member: Member, colour):
+        role_name = to_role_name(colour)
+        print(role_name)
+        for colour_obj in self.colour_store:
+            if colour_obj.role.name == role_name:  # If the role colour already exists
+                role = colour_obj.role
+                break
+        else:
+            print("Creating Role")
+            role = await ctx.guild.create_role(name=role_name, colour=colour_to_object(colour))
+            # Moves the new role directly above the colour role.
+            await sleep(1)  # Web-socket won't have received the colour role yet, so we wait a second
+            try:
+                colour_role = self.get_colour_role(ctx.guild)
+                await role.edit(position=colour_role.position)
+            except Forbidden:
+                # If role position above bot role position
+                pass
+        await member.add_roles(role)
+        return role
+
     @commands.group(invoke_without_command=True)
     async def col(self, ctx, member: Member = None):
         if member is None:
@@ -326,49 +370,17 @@ class CustomColours(commands.Cog):
 
         # You can give out self.max_colours_per_user many colours
         # Denies the request if from_user has more than that many things
-        # TODO not 100% sure that this works correctly with the max_colours.
-        count = 0
-        max_colours = self.get_max_colours(ctx.guild)
-        old_colour_obj = None
-        for colour_obj in self.colour_store:
-            print(f"From: Searching for {ctx.author}, found {colour_obj.from_member}")
-            print(f"To: Searching for {member_obj}, found {colour_obj.to_member}")
-            if colour_obj.to_member == member_obj:  # If old colour exists
-                old_colour_obj = colour_obj
-                if colour_obj.from_member == ctx.author:  # If link is existing
-                    break
-            if colour_obj.from_member == ctx.author:
-                print("Count incremented")
-                count += 1
-                if count >= max_colours:
-                    await ctx.send(f"You can only give custom colours to {max_colours} users, including yourself.\n"
-                                   "Use the `col remove` command to remove the ones you've already added.")
-                    return
 
+        old_colour_obj = await self.check_existing_colours(ctx, member_obj)
+        # Returns either True, False or the old colour object
+        if not old_colour_obj:
+            return
         # Remove the old colour, if one exists
-        if old_colour_obj is not None:
+        if isinstance(old_colour_obj, BoostColour):
             await old_colour_obj.to_member.remove_roles(old_colour_obj.role)
             self.colour_store.remove(old_colour_obj)
 
-        role_name = to_role_name(colour)
-        print(role_name)
-        for colour_obj in self.colour_store:
-            if colour_obj.role.name == role_name:  # If the role colour already exists
-                role = colour_obj.role
-                break
-        else:
-            print("Creating Role")
-            role = await ctx.guild.create_role(name=role_name, colour=colour_to_object(colour))
-            # Moves the new role directly above the colour role.
-            await sleep(1)  # Web-socket won't have received the colour role yet, so we wait a second
-            try:
-                await role.edit(position=colour_role.position)
-            except Forbidden:
-                # If role position above bot role position
-                pass
-        self.colour_store.append(BoostColour(role, ctx.author, member_obj))
-        await member_obj.add_roles(role)
-
+        role = await self.assign_custom_colour(ctx, member_obj, colour)
         em = Embed(title="Success!", description=f"I've added {member_obj.mention} to the {role.mention} role.")
         await ctx.send(embed=em)
 
@@ -417,6 +429,21 @@ class CustomColours(commands.Cog):
         else:
             guild_settings["colour_role_id"] = role.id
             await ctx.send(f"Colour role set to {role.mention}")
+
+    @col.command(name="forceadd")
+    @commands.has_guild_permissions(manage_guild=True)
+    async def col_forceadd(self, ctx, colour: str, member_t: Member, member_f: Member = None):
+        if member_f is None:
+            member_f = member_t
+
+        # TODO: Force a colour to be added to a member, as if it was from themselves.
+        colour = get_colour(colour.strip("#"))
+
+        role = await self.assign_custom_colour(ctx, member_t, colour)
+        self.colour_store.append(BoostColour(role, member_f, member_t))
+
+        em = Embed(description=f"I've added {member_t.mention} to the {role.mention} role. (From {member_f.mention})")
+        await ctx.send(embed=em)
 
 
 def setup(bot):

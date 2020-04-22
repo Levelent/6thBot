@@ -7,6 +7,8 @@ import asyncio
 import os.path
 from util.timeformatter import highest_denom
 
+extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "kowalski", "manager"]
+
 
 def load_json(filename):
     if not os.path.isfile(f"json/{filename}.json"):
@@ -16,7 +18,6 @@ def load_json(filename):
 
 
 def save_json(filename, data):
-    print(filename)
     with open(f"json/{filename}.json", "w", encoding="utf-8") as file:
         dump(data, file, ensure_ascii=False)
 
@@ -45,7 +46,14 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
             self.guild_settings[str(removed_guild)]: dict = {}
             print(f"- Removed {removed_guild}")
         print("...Done")
+
         self.save_guild_settings.start()
+
+        print("Loading extensions...")
+        total = len(extensions)
+        for num, name in enumerate(extensions):
+            print(f"[{num+1}/{total}] {name}")
+            self.load_extension(f"cogs.{name}")
 
     async def on_message(self, msg: discord.Message):
         if msg.author.bot:
@@ -76,7 +84,7 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
         await self.wait_until_ready()
 
     async def on_command_error(self, ctx, err):
-        print(err)
+        print(f"Type: {type(err)} | Description: {err}")
         if isinstance(err, commands.CommandNotFound):
             await ctx.message.add_reaction("❓")
         elif isinstance(err, commands.CommandOnCooldown):
@@ -88,6 +96,16 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
                 return
         elif isinstance(err, commands.MissingRequiredArgument):
             await ctx.send(f"You haven't specified the following argument: `{err.param.name}`")
+        elif isinstance(err, commands.BotMissingPermissions):
+            await ctx.send(f"Sorry, I don't have the permissions to do this properly - "
+                           f"you need to let me `{'`,`'.join(err.missing_perms)}`")
+        elif isinstance(err, commands.MissingPermissions):
+            await ctx.send("Sorry, you don't have the required permissions for this command :/")
+        elif isinstance(err, discord.Forbidden):
+            await ctx.send("Sorry, I'm not allowed to do that properly - have you set up permissions correctly?")
+        elif isinstance(err, commands.CommandInvokeError):
+            print("Command Invoke Error")
+            await self.on_command_error(ctx, err.original)
 
 
 # Initialise the bot client
@@ -97,13 +115,6 @@ bot = Core(
     command_prefix="6."
 )
 bot.remove_command('help')
-
-# Load Extensions
-extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "kowalski"]
-for ext_name in extensions:
-    print(f"Loading {ext_name}")
-    bot.load_extension(f"cogs.{ext_name}")
-# Other extensions: revise, starboard, wiki, autorole, archive
 
 # The bot token should be put in api_keys.json
 bot.run(bot.discord_api_key)
