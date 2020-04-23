@@ -36,6 +36,12 @@ class Manager(commands.Cog):
             await msg.edit(content=f"Shifting member roles... [{num}/{total}]")
         await msg.edit(content=f"Shifted Roles for {total} members.")
 
+    @commands.command(name="clearreact")
+    @commands.has_guild_permissions(manage_guild=True)
+    async def clear_react(self, ctx, message: discord.Message, emoji):
+        await message.clear_reaction(emoji)
+        await ctx.send("Reaction cleared.")
+
 
 def setup(bot):
     bot.add_cog(Manager(bot))

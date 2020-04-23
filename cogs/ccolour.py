@@ -33,7 +33,7 @@ def get_colour(colour_string: str):
     except Exception as e:
         print(e)
 
-    # 0x000000 actually counts as no colour at all, so we'll set it to 0x000001
+    # 0x000000 actually counts as no colour at all (thanks Discord), so we'll set it to 0x000001 and hope no-one notices
     if colour_int == 0:
         colour_int = 1
 
@@ -433,10 +433,16 @@ class CustomColours(commands.Cog):
     @col.command(name="forceadd")
     @commands.has_guild_permissions(manage_guild=True)
     async def col_forceadd(self, ctx, colour: str, member_t: Member, member_f: Member = None):
+        """
+        Force a colour to be added to a member, as if it was from another user. Ignores limits or restrictions.
+        :param ctx: context
+        :param colour:
+        :param member_t:
+        :param member_f:
+        """
         if member_f is None:
             member_f = member_t
 
-        # TODO: Force a colour to be added to a member, as if it was from themselves.
         colour = get_colour(colour.strip("#"))
 
         role = await self.assign_custom_colour(ctx, member_t, colour)

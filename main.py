@@ -7,7 +7,7 @@ import asyncio
 import os.path
 from util.timeformatter import highest_denom
 
-extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "kowalski", "manager"]
+extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "kowalski", "helper"]
 
 
 def load_json(filename):

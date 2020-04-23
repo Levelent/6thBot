@@ -1,6 +1,5 @@
 from discord.ext import commands
 from discord import Member, Embed
-from typing import Optional
 from datetime import datetime
 from util.timeformatter import highest_denom
 
