@@ -68,10 +68,12 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
     # Add empty settings dictionary on join
     async def on_guild_join(self, guild: discord.Guild):
         self.guild_settings[str(guild.id)]: dict = {}
+        print(f"+ Added {guild.name}")
 
     # Remove settings dictionary on leave
     async def on_guild_remove(self, guild: discord.Guild):
         self.guild_settings.pop(str(guild.id))
+        print(f"- Removed {guild.name}")
 
     @tasks.loop(minutes=15)
     async def save_guild_settings(self):
