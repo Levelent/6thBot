@@ -210,12 +210,13 @@ class Quiz(commands.Cog):
             slots = []
             for user_id, score_data in top_ten:
                 member = ctx.guild.get_member(user_id)
-                slot = f"#{pos} | {member.mention} | {score_data.score} "
+                slot = f"{member.mention} | {score_data.score} "
                 if score_data.curr_streak > 1:
                     slot += f" **🔥 {score_data.curr_streak}**"
                 elif score_data.streak_reset:
                     slot += f" **🧯 0**"
                 slots.append(slot)
+                pos += 1
             em = Embed(
                 title=f"Answer | **{self.option_emojis[correct_index]} {unescape(question['correct_answer'])}**",
                 description=f"{correct_text}\n{incorrect_text}"
@@ -230,6 +231,8 @@ class Quiz(commands.Cog):
 
         # Final standings
         pos = 1
+        last_pos = 1
+        last_score = 0
         slots = []
         url = None
         for user_id, score_data in quiz_data.top_scores():
@@ -237,10 +240,18 @@ class Quiz(commands.Cog):
             if pos == 1:
                 url = str(member.avatar_url)
 
-            slot = f"#{pos} | {member.mention} | {score_data.correct}/{score_data.answered} | {score_data.score} "
+            if last_score == score_data.score:
+                used_pos = last_pos
+            else:
+                used_pos = pos
+
+            slot = f"#{used_pos} | {member.mention} | {score_data.correct}/{score_data.answered} | {score_data.score} "
             if score_data.max_streak > 1:
                 slot += f"**🔥 {score_data.max_streak}** Max"
             slots.append(slot)
+
+            last_pos = used_pos
+            last_score = score_data.score
             pos += 1
 
         em = Embed(title="Final Scores", colour=0xFA8072, description="\n".join(slots) or "Hello? Anyone there?")
