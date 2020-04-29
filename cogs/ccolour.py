@@ -87,22 +87,36 @@ class CustomColours(commands.Cog):
         self.cleanup_roles.start()
 
     async def fetch_colour_store(self):
+        await self.bot.wait_until_ready()
+        print("Fetching Colour Store...")
         with open("json/role_storage.json", "r") as file:
             if file.read() == "":
                 return []
             file.seek(0)
             colour_store_json = load(file)
         colour_store = []
-        # If switching to multi-server, put inside the for loop and edit.
+        # TODO: switch to multi-server, with a map between server id and colours.
+        print(colour_store_json)
         for server_str in self.bot.guild_settings:
             guild = self.bot.get_guild(int(server_str))
+            if guild is None:
+                continue
             for colour_dict in colour_store_json:
                 from_member = guild.get_member(colour_dict['from_id'])
+                if from_member is None:
+                    print("Skipped due to invalid from_id")
+                    continue
                 if colour_dict['from_id'] == colour_dict['to_id']:
                     to_member = from_member
                 else:
                     to_member = guild.get_member(colour_dict['to_id'])
+                    if to_member is None:
+                        print("Skipped due to invalid to_id")
+                        continue
                 role_obj = guild.get_role(colour_dict['role_id'])
+                if role_obj is None:
+                    print("Skipped due to invalid role_obj")
+                    continue
                 colour_store.append(BoostColour(role_obj, from_member, to_member))
         return colour_store
 
@@ -122,7 +136,7 @@ class CustomColours(commands.Cog):
         # Wait for server data to load in
         await self.bot.wait_until_ready()
 
-    @tasks.loop(minutes=10)
+    @tasks.loop(minutes=15)
     async def save_colour_store(self):
         print("Saving Custom Colours to file...")
         colour_store_json = []
@@ -136,7 +150,6 @@ class CustomColours(commands.Cog):
 
     @save_colour_store.before_loop
     async def before_save(self):
-        await self.bot.wait_until_ready()
         self.colour_store = await self.fetch_colour_store()
         print(self.colour_store)
 
