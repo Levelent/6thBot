@@ -394,6 +394,8 @@ class CustomColours(commands.Cog):
             self.colour_store.remove(old_colour_obj)
 
         role = await self.assign_custom_colour(ctx, member_obj, colour)
+        self.colour_store.append(BoostColour(role, ctx.author, member_obj))
+
         em = Embed(title="Success!", description=f"I've added {member_obj.mention} to the {role.mention} role.")
         await ctx.send(embed=em)
 
