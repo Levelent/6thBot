@@ -1,5 +1,6 @@
 from discord.ext import commands
 from discord import Member, Guild, Message, NotFound, TextChannel, Embed, Role
+from datetime import datetime
 from asyncio import sleep
 from util.timeformatter import highest_denom
 from typing import Union
@@ -23,6 +24,13 @@ class Filter(commands.Cog):
         if filter_role_id is None:
             return None
         return guild.get_role(filter_role_id)
+
+    def get_new_acc_role(self, guild: Guild):
+        guild_settings = self.bot.guild_settings[str(guild.id)]
+        new_acc_role_id = guild_settings.get("new_acc_role_id", None)
+        if new_acc_role_id is None:
+            return None
+        return guild.get_role(new_acc_role_id)
 
     def get_manual_chl(self, guild: Guild):
         guild_settings = self.bot.guild_settings[str(guild.id)]
@@ -87,6 +95,12 @@ class Filter(commands.Cog):
         if filter_role is None:
             return
         await member.add_roles(filter_role)
+
+        create_now_diff = datetime.utcnow() - member.created_at
+        if create_now_diff.days < 14:
+            new_acc_role = self.get_new_acc_role(guild)
+            if new_acc_role is not None:
+                await member.add_roles(new_acc_role)
 
         await self.send_welcomes(member)
 
@@ -201,17 +215,26 @@ class Filter(commands.Cog):
         print(welcome_list)
 
         em = Embed(title="Server Welcome Messages", description="\n".join(welcome_list) or "None set.", colour=0xFA8072)
-        em.set_footer(text="Sub-commands: add | remove | role | [name]")
+        em.set_footer(text="Sub-commands: add | remove | filter | restrict | [name]")
         em.set_author(name=f"Requested by {str(ctx.author)}", icon_url=str(ctx.author.avatar_url))
         em.set_thumbnail(url=str(ctx.guild.icon_url))
+
         filter_role = self.get_filter_role(ctx.guild)
         if filter_role is None:
             role_text = "None set."
         else:
             role_text = filter_role.mention
         em.add_field(name="Filter Role", value=role_text)
+
         filter_secs = self.get_filter_time(ctx.guild)
         em.add_field(name="Filter Timer", value=highest_denom(filter_secs))
+
+        restrict_role = self.get_new_acc_role(ctx.guild)
+        if restrict_role is None:
+            role_text = "None set."
+        else:
+            role_text = restrict_role.mention
+        em.add_field(name="New Account Role", value=role_text)
         await ctx.send(embed=em)
 
     @welcome.command(name="add")
@@ -248,16 +271,23 @@ class Filter(commands.Cog):
             guild_settings.pop('welcome_messages')
         await ctx.send(f"Welcome message `{name}` removed.")
 
-    @welcome.command(name="role")
+    @welcome.command(name="filter")
     @commands.has_guild_permissions(manage_roles=True)
-    async def welcome_role(self, ctx, role: Role, filter_minutes: int):
+    async def welcome_filter(self, ctx, role: Role, filter_minutes: int):
         if filter_minutes < 1:
             await ctx.send("Choose a number of minutes greater than 0.")
             return
         guild_settings: dict = self.bot.guild_settings[str(ctx.guild.id)]
         guild_settings['filter_role_id'] = role.id
         guild_settings['filter_time'] = filter_minutes
-        await ctx.send(f"Welcome role set to muted {role.mention}, will be removed after {filter_minutes} minutes.")
+        await ctx.send(f"Welcome filter set on {role.mention}, will be removed after {filter_minutes} minutes.")
+
+    @welcome.command(name="restrict")
+    @commands.has_guild_permissions(manage_roles=True)
+    async def welcome_restrict(self, ctx, role: Role):
+        guild_settings: dict = self.bot.guild_settings[str(ctx.guild.id)]
+        guild_settings['new_acc_role_id'] = role.id
+        await ctx.send(f"Restriction set on {role.mention}, role will be applied to new accounts (<14 days)")
 
 
 def setup(bot):
