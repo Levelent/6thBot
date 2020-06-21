@@ -28,7 +28,7 @@ class Analysis(commands.Cog):
         else:
             colour = 0xFA8072
 
-        em = Embed(title=str(member), colour=colour, url=str(member.avatar_url))
+        em = Embed(title=str(member), colour=colour, url=str(member.avatar_url), description=f"({member.mention})")
         em.set_thumbnail(url=str(member.avatar_url))
         em.add_field(name="User ID", value=member.id)
         em.add_field(name="Display Name", value=member.display_name)
