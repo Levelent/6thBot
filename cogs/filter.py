@@ -273,7 +273,12 @@ class Filter(commands.Cog):
 
     @welcome.command(name="filter")
     @commands.has_guild_permissions(manage_roles=True)
-    async def welcome_filter(self, ctx, role: Role, filter_minutes: int):
+    async def welcome_filter(self, ctx, role: Role = None, filter_minutes: int = 15):
+        if role is None:
+            guild_settings: dict = self.bot.guild_settings[str(ctx.guild.id)]
+            del(guild_settings['filter_role_id'])
+            await ctx.send("Welcome filter role removed, as none was specified.")
+            return
         if filter_minutes < 1:
             await ctx.send("Choose a number of minutes greater than 0.")
             return
