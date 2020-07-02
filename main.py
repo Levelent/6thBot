@@ -88,6 +88,8 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
     async def on_command_error(self, ctx, err):
         print(f"Type: {type(err)} | Description: {err}")
         if isinstance(err, commands.CommandNotFound):
+            if err.args[0].isdigit():
+                return
             await ctx.message.add_reaction("❓")
         elif isinstance(err, commands.CommandOnCooldown):
             await ctx.send(f"You'll be able to use this command again in **{highest_denom(err.retry_after)}**.",
