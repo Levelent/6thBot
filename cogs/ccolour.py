@@ -229,6 +229,13 @@ class CustomColours(commands.Cog):
                     print("Removed completely")
                     await role.delete()
 
+    @commands.Cog.listener()
+    async def on_guild_role_delete(self, role):
+        for colour_obj in self.colour_store:
+            if colour_obj.role.id == role.id:
+                self.colour_store.remove(colour_obj)
+                break
+
     async def request_custom_colour(self, ctx, colour, member_obj):
         if member_obj is None:
             await ctx.send("Sorry, I don't recognise that person... Try typing in their full username, or user ID.")
