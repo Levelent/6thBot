@@ -454,7 +454,7 @@ class CustomColours(commands.Cog):
 
     @col.command(name="forceadd")
     @commands.has_guild_permissions(manage_guild=True)
-    async def col_forceadd(self, ctx, colour: str, member_t: Member, member_f: Member = None):
+    async def col_force_add(self, ctx, colour: str, member_t: Member, member_f: Member = None):
         """
         Force a colour to be added to a member, as if it was from another user. Ignores limits or restrictions.
         :param ctx: context

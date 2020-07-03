@@ -8,13 +8,20 @@ class Analysis(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def ping(self, ctx):
-        response = await ctx.send("🏓 Pong!")
+    async def ping_pong(self, ctx, message):
+        response = await ctx.send(f"🏓 {message}!")
         diff = response.created_at - ctx.message.created_at
         milliseconds = int(diff.total_seconds() * 1000)
         print(f"Latency: {milliseconds}ms")
-        await response.edit(content=f"🏓 Pong! `{milliseconds}ms`")
+        await response.edit(content=f"🏓 {message}! `{milliseconds}ms`")
+
+    @commands.command()
+    async def ping(self, ctx):
+        await self.ping_pong(ctx, "Pong")
+
+    @commands.command()
+    async def pong(self, ctx):
+        await self.ping_pong(ctx, "Ping")
 
     @commands.command()
     async def profile(self, ctx, member: Member = None):
