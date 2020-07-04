@@ -88,7 +88,9 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
     async def on_command_error(self, ctx, err):
         print(f"Type: {type(err)} | Description: {err}")
         if isinstance(err, commands.CommandNotFound):
-            if err.args[0].isdigit():
+            cmd_name = err.args[0].split('"')[1]
+            print(f"Invalid command: {cmd_name}")
+            if cmd_name.isdigit():
                 return
             await ctx.message.add_reaction("❓")
         elif isinstance(err, commands.CommandOnCooldown):
@@ -110,6 +112,8 @@ class Core(commands.Bot):  # discord.ext.commands.Bot is a subclass of discord.C
         elif isinstance(err, commands.CommandInvokeError):
             print("Command Invoke Error")
             await self.on_command_error(ctx, err.original)
+        elif isinstance(err, commands.ConversionError):
+            print(f"Conversion failed with {err.converter}")
 
 
 # Initialise the bot client
