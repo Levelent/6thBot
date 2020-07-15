@@ -125,8 +125,8 @@ class Quiz(commands.Cog):
     @commands.command()
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     async def quiz(self, ctx, rounds: int = 5):
-        if rounds > 25 or rounds < 1:
-            await ctx.channel.send("You can have between 1-25 questions per quiz.")  # Technically 150 is the limit
+        if not 1 <= rounds <= 20:
+            await ctx.channel.send("You can have between 1-20 questions per quiz.")  # Technically 150 is the limit
             return
 
         # Tries to fetch equal number of questions for each difficulty. Remainder precedence Medium, Hard, Easy
