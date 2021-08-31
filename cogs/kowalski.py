@@ -1,5 +1,5 @@
 from discord.ext import commands
-from discord import Member, Embed
+from discord import Member, Embed, Role
 from datetime import datetime
 from util.timeformatter import highest_denom
 
@@ -68,6 +68,14 @@ class Analysis(commands.Cog):
         em.add_field(name="Roles", value=role_str, inline=False)
         em.set_footer(text="All times in UTC | Date format: dd/mm/yy")
         await ctx.send(embed=em)
+
+    @commands.command()
+    async def roleinfo(self, ctx, role: Role = None):
+        if role is None:
+            role_list = sorted(ctx.guild.roles, key=lambda x: len(x.members), reverse=True)
+            role_strings = [f"{role.mention} | {len(role.members)} members" for role in role_list]
+            em = Embed(description="\n".join(role_strings[:15]))
+            await ctx.send(embed=em)
 
 
 def setup(bot):

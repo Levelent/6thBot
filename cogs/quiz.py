@@ -1,6 +1,6 @@
 # Uses the OpenTDB API to fetch questions for a multi-round server quiz.
 from discord.ext import commands
-from discord import Embed, PermissionOverwrite, Reaction, Message
+from discord import Embed, Reaction, Message
 from asyncio import sleep
 from random import shuffle
 from json import loads
@@ -17,6 +17,7 @@ async def get_json_content(url):
 
 
 async def get_questions(difficulty, amount):
+    # Note: Disproportionately large number of questions in the 'Entertainment: Video Games' category
     url = f"https://opentdb.com/api.php?amount={amount}&type=multiple&difficulty={difficulty}"
     data = await get_json_content(url)
     return [quest for quest in data['results']]
@@ -42,10 +43,12 @@ class ScoreData:
             self.max_streak = self.curr_streak
 
     def add_incorrect(self):
+        # streak no longer 'extinguished' if two incorrect in a row.
         if self.streak_reset:
             self.streak_reset = False
         self.answered += 1
         self.score -= 250
+        # streak 'extinguished' on an incorrect answer
         if self.curr_streak > 1:
             self.streak_reset = True
         self.curr_streak = 0
@@ -122,25 +125,7 @@ class Quiz(commands.Cog):
         guild_quiz_data.set_answer(user.id, reaction.emoji)  # change emote
         await reaction.remove(user)
 
-    @commands.command()
-    @commands.max_concurrency(1, per=commands.BucketType.guild)
-    async def quiz(self, ctx, rounds: int = 5):
-        if not 1 <= rounds <= 20:
-            await ctx.channel.send("You can have between 1-20 questions per quiz.")  # Technically 150 is the limit
-            return
-
-        # Tries to fetch equal number of questions for each difficulty. Remainder precedence Medium, Hard, Easy
-        questions = []
-        quotient, remainder = divmod(rounds, 3)
-        for diff in ["easy", "medium", "hard"]:
-            diff_amount = quotient
-            if (diff == "medium" and remainder != 0) or (diff == "hard" and remainder == 2):
-                diff_amount += 1
-            questions += await get_questions(diff, diff_amount)
-        print(questions)
-
-        # Note: Disproportionately large number of questions in the 'Entertainment: Video Games' category
-
+    async def setup_quiz(self, ctx, rounds: int) -> QuizData:
         em = Embed(
             title="A Quiz will start in 10 seconds.",
             description=(
@@ -157,79 +142,89 @@ class Quiz(commands.Cog):
 
         quiz_data = QuizData(quiz_msg, self.option_emojis)
         self.active_quiz_data[ctx.guild.id] = quiz_data
+        return quiz_data
 
-        await sleep(10)
-        for question_no in range(rounds):
-            question = questions[question_no]
+    async def serve_question(self, ctx, question, question_no, rounds):
+        quiz_msg = self.active_quiz_data[ctx.guild.id].message
+        em = Embed(
+            colour=0xFA8072, title=unescape(question['question'])
+        )
+        em.set_footer(text=f"Question {question_no + 1} of {rounds} | {15} seconds per question")
+        em.set_author(
+            name=f"{question['difficulty'].title()} | {question['category']}",
+            icon_url=ctx.me.avatar_url
+        )
 
-            em = Embed(colour=0xFA8072, title=unescape(question['question']))
-            em.set_footer(text=f"Question {question_no + 1} of {rounds} | {15} seconds per question")
-            em.set_author(
-                name=f"{question['difficulty'].title()} | {question['category']}",
-                icon_url=ctx.me.avatar_url
+        options = question['incorrect_answers']
+        options.append(question['correct_answer'])
+        shuffle(options)
+
+        # determine correct answer index after shuffle, while constructing question
+        correct_idx = 0
+        for i in range(len(options)):
+            em.add_field(name=self.option_emojis[i], value=unescape(options[i]), inline=False)
+            if options[i] == question['correct_answer']:
+                correct_idx = i
+            await quiz_msg.add_reaction(self.option_emojis[i])
+
+        # 5 second decrements give rough indicator of time remaining - frequent edits would increase latency.
+        for i in range(3):
+            await quiz_msg.edit(
+                content=f":alarm_clock: You have {15 - (i * 5)} Seconds to answer this question",
+                embed=em
             )
-
-            options = question['incorrect_answers']
-            options.append(question['correct_answer'])
-            shuffle(options)
-
-            correct_index = 0
-            for i in range(len(options)):
-                em.add_field(name=self.option_emojis[i], value=unescape(options[i]), inline=False)
-                if options[i] == question['correct_answer']:
-                    correct_index = i
-                await quiz_msg.add_reaction(self.option_emojis[i])
-
-            for i in range(3):
-                await quiz_msg.edit(
-                    content=f":alarm_clock: You have {15 - (i * 5)} Seconds to answer this question",
-                    embed=em
-                )
-                await sleep(5)
-            await quiz_msg.edit(content="\n:alarm_clock: Time's up!")
-
-            correct_ids, incorrect_ids = quiz_data.update_scores(self.option_emojis[correct_index])
-            correct_mentions = [ctx.guild.get_member(user_id).mention for user_id in correct_ids]
-            incorrect_mentions = [ctx.guild.get_member(user_id).mention for user_id in incorrect_ids]
-            if len(correct_mentions) == 0:
-                correct_text = "Looks like no-one got it right this round!"
-            else:
-                correct_text = " ".join(correct_mentions) + " | Correct!"
-            if len(incorrect_mentions) == 0:
-                incorrect_text = "No incorrect answers."
-            else:
-                incorrect_text = " ".join(incorrect_mentions) + " | Incorrect..."
-
-            # Get message by id again, as reaction data is not updated
-            quiz_msg = await ctx.channel.fetch_message(quiz_msg.id)
-            await quiz_msg.clear_reactions()
-
-            # returns a list of tuples [(id: int, sd: ScoreData)], we can iterate with 'for key, value in ...'
-            top_ten = quiz_data.top_scores(10)
-            pos = 1
-            slots = []
-            for user_id, score_data in top_ten:
-                member = ctx.guild.get_member(user_id)
-                slot = f"{member.mention} | {score_data.score} "
-                if score_data.curr_streak > 1:
-                    slot += f" **🔥 {score_data.curr_streak}**"
-                elif score_data.streak_reset:
-                    slot += f" **🧯 0**"
-                slots.append(slot)
-                pos += 1
-            em = Embed(
-                title=f"Answer | **{self.option_emojis[correct_index]} {unescape(question['correct_answer'])}**",
-                description=f"{correct_text}\n{incorrect_text}"
-            )
-            em.add_field(
-                name="Current Standings:",
-                value="\n".join(slots) or "Noone's answered yet :("
-            )
-            em.set_footer(text=f"{rounds - question_no - 1} questions remain | Advancing in 5 seconds")
-            await quiz_msg.edit(embed=em)
             await sleep(5)
+        await quiz_msg.edit(content="\n:alarm_clock: Time's up!")
+        return correct_idx
 
-        # Final standings
+    async def update_standings(self, ctx, correct_idx, correct_ans, question_no, rounds):
+        quiz_data = self.active_quiz_data[ctx.guild.id]
+        correct_ids, incorrect_ids = quiz_data.update_scores(self.option_emojis[correct_idx])
+
+        correct_mentions = [ctx.guild.get_member(user_id).mention for user_id in correct_ids]
+        incorrect_mentions = [ctx.guild.get_member(user_id).mention for user_id in incorrect_ids]
+
+        if len(correct_mentions) == 0:
+            correct_text = "Looks like no-one got it right this round!"
+        else:
+            correct_text = " ".join(correct_mentions) + " | Correct!"
+
+        if len(incorrect_mentions) == 0:
+            incorrect_text = "No incorrect answers."
+        else:
+            incorrect_text = " ".join(incorrect_mentions) + " | Incorrect..."
+
+        # Fetches the top 10 users and their score data.
+        pos = 1
+        slots = []
+        for user_id, score_data in quiz_data.top_scores(10):
+            member = ctx.guild.get_member(user_id)
+            slot = f"{member.mention} | {score_data.score} "
+            if score_data.curr_streak > 1:
+                slot += f" **🔥 {score_data.curr_streak}**"
+            elif score_data.streak_reset:
+                slot += f" **🧯 0**"
+            slots.append(slot)
+            pos += 1
+
+        em = Embed(
+            title=f"Answer | **{self.option_emojis[correct_idx]} {correct_ans}**",
+            description=f"{correct_text}\n{incorrect_text}"
+        )
+        em.add_field(
+            name="Current Standings:",
+            value="\n".join(slots) or "No-one has answered yet :("
+        )
+        em.set_footer(text=f"{rounds - question_no - 1} questions remain | Advancing in 5 seconds")
+
+        # Get message by id again, as reaction data is not updated
+        quiz_msg = await ctx.channel.fetch_message(quiz_data.message.id)
+        await quiz_msg.clear_reactions()
+        await quiz_msg.edit(embed=em)
+        await sleep(5)
+
+    async def final_standings(self, ctx, rounds):
+        quiz_data = self.active_quiz_data[ctx.guild.id]
         pos = 1
         last_pos = 1
         last_score = 0
@@ -237,6 +232,8 @@ class Quiz(commands.Cog):
         url = None
         for user_id, score_data in quiz_data.top_scores():
             member = ctx.guild.get_member(user_id)
+
+            # First place member has their picture at the top.
             if pos == 1:
                 url = str(member.avatar_url)
 
@@ -255,19 +252,44 @@ class Quiz(commands.Cog):
             pos += 1
 
         em = Embed(title="Final Scores", colour=0xFA8072, description="\n".join(slots) or "Hello? Anyone there?")
-        em.set_footer(text=f"Lasted {rounds} rounds | Type '6.quiz' to play again")
+        em.set_footer(text=f"Lasted {rounds} rounds. | Play again?")
         em.set_author(name="Quiz Complete | Thanks for playing!", icon_url=ctx.me.avatar_url)
         if url is not None:
             em.set_thumbnail(url=url)
 
-        await quiz_msg.edit(embed=em)
+        await quiz_data.message.edit(embed=em)
+
+    @commands.command()
+    @commands.max_concurrency(1, per=commands.BucketType.guild)
+    async def quiz(self, ctx, rounds: int = 5):
+        if not 1 <= rounds <= 15:
+            # Technically 150 is the limit, but it gets very boring.
+            await ctx.channel.send("You can have between 1-15 questions per quiz.")
+            return
+
+        # Tries to fetch similar number of questions for each difficulty. Remainder precedence Medium, Hard, Easy
+        questions = []
+        quotient, remainder = divmod(rounds, 3)
+        questions += await get_questions("easy", quotient)
+        questions += await get_questions("medium", quotient + (remainder != 0))
+        questions += await get_questions("hard", quotient + (remainder == 2))
+
+        await self.setup_quiz(ctx, rounds)
+        await sleep(10)
+
+        for question_no in range(rounds):
+            question = questions[question_no]
+            correct_idx = await self.serve_question(ctx, question, question_no, rounds)
+            await self.update_standings(ctx, correct_idx, unescape(question['correct_answer']), question_no, rounds)
+
+        await self.final_standings(ctx, rounds)
 
     @quiz.error
     async def quiz_error(self, ctx, error):
         if isinstance(error, commands.MaxConcurrencyReached):
             message = self.active_quiz_data[ctx.guild.id].message
             await ctx.send(f"Only one quiz can be active at once. "
-                           f"You can find the current game here:\n{message.jump_url}", delete_after=15.0)
+                           f"You can find the current game here:\n{message.jump_url}", delete_after=30.0)
         elif isinstance(error, commands.UserInputError):
             await ctx.send("Make sure to specify a *positive number* of rounds.")
         else:

@@ -2,4 +2,5 @@
 /json/guild_settings.json
 /json/role_storage.json
 /collages/
-
+.idea
+**/__pycache__

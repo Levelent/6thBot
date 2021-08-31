@@ -45,8 +45,12 @@ class API(commands.Cog):
 
         player_content = response['players'][0]
 
-        em = Embed(colour=0x8B008B, title="Profile | " + search, url=player_content['profileurl'],
-                   description="More stats at [Steam DB](https://steamdb.info/calculator/{})".format(search))
+        em = Embed(
+            colour=0x8B008B,
+            title=f"Profile | {search}",
+            url=player_content['profileurl'],
+            description=f"More stats at [Steam DB](https://steamdb.info/calculator/{search})"
+        )
         em.add_field(name="📝 Username", value=player_content['personaname'])
 
         if player_content['communityvisibilitystate'] == 1:  # If profile hidden
@@ -88,19 +92,33 @@ class API(commands.Cog):
                 # 6n < n log n, so maybe just search through the list linearly
                 sorted_games = sorted(game_list)
                 if len(sorted_games) > 6:
-                    top5 = sorted_games[-6:]
+                    top6 = sorted_games[-6:]
                 else:
-                    top5 = sorted_games
-                top5.reverse()
-                print(top5)
+                    top6 = sorted_games
+                top6.reverse()
+                print(top6)
 
                 value = ""
-                for item in top5:
+                for item in top6:
                     hours = int(round(int(item[0]) / 60))
                     value += f"[{item[1]}](https://store.steampowered.com/app/{item[2]}) | {hours} Hours\n"
                 em.add_field(name="🕖 Most Played", value=value)
 
-        await ctx.channel.send(embed=em)
+        steam_msg = await ctx.channel.send(embed=em)
+        await steam_msg.add_reaction('🎮')
+
+        def check(msg_react, msg_user):
+            return msg_user == ctx.author and msg_react.message.id == steam_msg.id and msg_react.emoji == '🎮'
+
+        try:
+            await self.bot.wait_for('reaction_add', timeout=15.0, check=check)
+        except TimeoutError:
+            steam_msg = await ctx.channel.fetch_message(steam_msg.id)
+            await steam_msg.clear_reaction('🎮')
+            return
+
+        # Display more games + playtime on reaction
+        # em.set_field_at()
 
     @commands.command()
     async def wiki(self, ctx, *, search):

@@ -2,6 +2,7 @@ from discord.ext import commands, tasks
 from discord import Member, Embed, Role, Colour, Guild, Forbidden, HTTPException
 from json import load, dumps
 from asyncio import TimeoutError, sleep
+from re import match
 
 
 def to_role_name(colour: int):
@@ -15,25 +16,17 @@ def default_colours():
 
 def get_colour(colour_string: str):
     colour_string = colour_string.lower()
-    colour_int = None
 
-    # Test for common colours (Red, Orange, Blue, Purple etc)
-    try:
-        colour_int = default_colours()[colour_string]
+    # Test for common colours
+    colour_int = default_colours().get(colour_string)
+    if colour_int:
         return colour_int
-    except KeyError:
-        pass
 
-    # Test for Hex Code
-    if len(colour_string) > 6:
-        return None
-
-    try:
+    # Test for hex code
+    if match("[0-9a-f]{6}", colour_string):
         colour_int = int(colour_string, 16)
-    except Exception as e:
-        print(e)
 
-    # 0x000000 actually counts as no colour at all (thanks Discord), so we'll set it to 0x000001 and hope no-one notices
+    # 0x000000 counts as no colour at all
     if colour_int == 0:
         colour_int = 1
 
@@ -41,9 +34,10 @@ def get_colour(colour_string: str):
 
 
 def int_to_rgb(colour_int: int):
-    col_b = colour_int & 255  # Takes the last 8 bits
-    col_g = (colour_int >> 8) & 255  # Takes the middle 8 bits
-    col_r = (colour_int >> 16) & 255  # Takes the first 8 bits
+    # Takes last, middle and first 8 bits
+    col_b = colour_int & 255
+    col_g = (colour_int >> 8) & 255
+    col_r = (colour_int >> 16) & 255
     return col_r, col_g, col_b
 
 
@@ -57,7 +51,14 @@ class BoostColour:
         self.role = role
         self.to_member = to_member
         self.from_member = from_member
+        self.col_int = None
         # Potential guild attribute
+
+    def set_colour(self, colour_str):
+        pass
+
+    def get_colour(self):
+        pass
 
 
 def get_target_member(ctx, user_string: str):
@@ -125,6 +126,8 @@ class CustomColours(commands.Cog):
         print("Cleaning up roles...")
         for server_str in self.bot.guild_settings:
             guild = self.bot.get_guild(int(server_str))
+            if guild is None:
+                continue
             for role in guild.roles:
                 if len(role.members) == 0 and "CColour " in role.name:
                     print(f"Deleting Role: {role.name}")
@@ -169,8 +172,8 @@ class CustomColours(commands.Cog):
     def get_colour_role(self, guild: Guild):
         """
         Fetches the colour role for the specified server, if the setting exists
-        :param guild: a discord.Guild object
-        :return: either a discord.Role object, or None
+        :param guild: Discord.Guild object
+        :return: Discord.Role object
         """
         guild_settings = self.bot.guild_settings[str(guild.id)]
         colour_role_id = guild_settings.get("colour_role_id", None)
@@ -307,6 +310,7 @@ class CustomColours(commands.Cog):
             print("Creating Role")
             role = await ctx.guild.create_role(name=role_name, colour=colour_to_object(colour))
             # Moves the new role directly above the colour role.
+            # TODO: Use 'await Guild.fetch_roles()'
             await sleep(1)  # Web-socket won't have received the colour role yet, so we wait a second
             try:
                 colour_role = self.get_colour_role(ctx.guild)
