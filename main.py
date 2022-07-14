@@ -7,8 +7,10 @@ import asyncio
 import os.path
 from util.timeformatter import highest_denom
 
-extensions = ["apis", "quiz", "ccolour", "collage", "fun", "filter", "kowalski", "helper"]
+intents = discord.Intents.all()
+intents.members = True
 
+extensions = ["apis", "quiz", "ccolour", "collage", "fun", "kowalski", "helper"]
 
 def load_json(filename):
     if not os.path.isfile(f"json/{filename}.json"):
@@ -121,6 +123,7 @@ bot = Core(
     description="A Bot Designed for the r/6thForm Discord.",
     activity=discord.Game("with you!"),  # "playing" is prefixed at the start of the status
     command_prefix="6."
+    intents=intents
 )
 bot.remove_command('help')
 
