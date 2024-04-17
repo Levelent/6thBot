@@ -3,7 +3,7 @@
 ### Setup:
 
 Before running anything, make sure you have the following packages installed via pip:
-- discord.py (v1.3.2)
+- discord.py (v1.7.3)
 - pillow (v7.0.0)
 
 Then, you'll need 3 API tokens:
